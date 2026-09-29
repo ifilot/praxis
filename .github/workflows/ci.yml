@@ -1,0 +1,130 @@
+name: CI
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches: [ "**" ]
+    tags: [ "v*" ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    name: Linux (Ubuntu)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            qt6-base-dev \
+            qt6-base-dev-tools \
+            libqt6opengl6-dev \
+            libglm-dev
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Unit tests
+        run: QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
+
+      # Full workflow as experienced by a user: install the managed Python
+      # environment with uv, then run a calculation through the job runner
+      - name: Environment and job integration test
+        run: |
+          bash scripts/fetch-uv.sh x86_64-unknown-linux-gnu "$RUNNER_TEMP/uv"
+          QT_QPA_PLATFORM=offscreen PYQINT_GUI_TEST_UV="$RUNNER_TEMP/uv/uv" \
+            ./build/test/pyqint_gui_test environment_install_and_run
+
+  windows-mingw:
+    name: Windows (MSYS2 MinGW64)
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          path-type: inherit
+          install: >-
+            unzip
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-qt6-base
+            mingw-w64-x86_64-qt6-tools
+            mingw-w64-x86_64-glm
+            mingw-w64-x86_64-mesa
+            mingw-w64-x86_64-nsis
+
+      - name: Build, test & package
+        run: ./package-windows.sh
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: PyQInt-GUI-Windows-Setup
+          path: PyQInt-GUI-Windows-Setup.exe
+          if-no-files-found: error
+
+      - name: Create GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: PyQInt-GUI-Windows-Setup.exe
+
+  macos:
+    name: macOS (Apple Silicon)
+    runs-on: macos-15
+
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install dependencies
+        run: brew install cmake ninja qt glm
+
+      - name: Build, test, and package
+        run: |
+          export PATH="$(brew --prefix qt)/bin:$PATH"
+          export CMAKE_PREFIX_PATH="$(brew --prefix qt)"
+          bash package-macos.sh
+
+      - name: Upload disk image
+        uses: actions/upload-artifact@v7
+        with:
+          name: PyQInt-GUI-macOS-arm64
+          path: dist/macos/PyQInt-GUI-macOS-arm64.dmg
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Add disk image to GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: dist/macos/PyQInt-GUI-macOS-arm64.dmg

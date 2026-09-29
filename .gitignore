@@ -1,0 +1,9 @@
+build/
+build-*/
+dist/
+*.exe
+*.dmg
+.vscode/
+.idea/
+CMakeLists.txt.user
+__pycache__/
