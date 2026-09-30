@@ -186,6 +186,7 @@ IsoMesh marching_cubes(const ScalarField& field, float isovalue) {
 }
 
 IsoMesh sphere_mesh(const glm::vec3& center, float radius, unsigned int stacks, unsigned int slices) {
+    constexpr float pi = 3.14159265358979323846f;
     IsoMesh mesh;
     stacks = std::max(2u, stacks);
     slices = std::max(3u, slices);
@@ -198,9 +199,9 @@ IsoMesh sphere_mesh(const glm::vec3& center, float radius, unsigned int stacks, 
     // north pole, rings (without seam duplicates), south pole
     add_vertex(glm::vec3(0.0f, 0.0f, 1.0f));
     for(unsigned int i = 1; i < stacks; ++i) {
-        const float theta = (float)M_PI * (float)i / (float)stacks;
+        const float theta = pi * (float)i / (float)stacks;
         for(unsigned int j = 0; j < slices; ++j) {
-            const float phi = 2.0f * (float)M_PI * (float)j / (float)slices;
+            const float phi = 2.0f * pi * (float)j / (float)slices;
             add_vertex(glm::vec3(std::sin(theta) * std::cos(phi), std::sin(theta) * std::sin(phi), std::cos(theta)));
         }
     }

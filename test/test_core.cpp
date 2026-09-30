@@ -607,13 +607,14 @@ private slots:
     // camera orientation
     // ------------------------------------------------------------------
     void principal_axes_orientation() {
+        constexpr float pi = 3.14159265358979323846f;
         // planar "molecule" in a tilted plane with normal n; widest along a
         const QVector3D n = QVector3D(1.0f, 1.0f, 1.0f).normalized();
         const QVector3D a = QVector3D(1.0f, -1.0f, 0.0f).normalized();
         const QVector3D b = QVector3D::crossProduct(n, a);
         std::vector<QVector3D> points;
         for(int i = 0; i < 6; ++i) {
-            const float phi = (float)i * (float)M_PI / 3.0f;
+            const float phi = (float)i * pi / 3.0f;
             points.push_back(3.0f * std::cos(phi) * a + 1.5f * std::sin(phi) * b);
         }
 

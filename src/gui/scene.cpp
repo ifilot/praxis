@@ -28,6 +28,8 @@
 
 namespace {
 
+constexpr double pi = 3.14159265358979323846;
+
 /**
  * @brief Eigenvectors of a symmetric 3x3 matrix (cyclic Jacobi method)
  *
@@ -118,7 +120,7 @@ QMatrix4x4 Scene::alignment_rotation(CameraAlignment alignment, const std::vecto
     // avoid gimbal locking
     if(std::fabs(dirvec[1]) > .999) {
         axis = QVector3D(0.0, 0.0, 1.0);
-        angle = dirvec[1] < 0.0 ? -M_PI : 0.0;
+        angle = dirvec[1] < 0.0 ? -pi : 0.0;
     } else {
         axis = QVector3D::crossProduct(QVector3D(0.0, 1.0, 0.0), dirvec);
         angle = std::acos(dirvec[1]);
