@@ -44,6 +44,8 @@ private:
     PythonEnvironment* environment;
     QProcess* process = nullptr;
     QString job_dir;
+    QString result_file;
+    QString log_filename;
     QString stdout_buffer;
     QString log;
     QElapsedTimer timer;
@@ -70,6 +72,17 @@ public:
      */
     QString start(const JobSpec& spec);
 
+    /**
+     * @brief Add Foster-Boys localized orbitals to an existing (restricted)
+     *        result without repeating the Hartree-Fock calculation
+     *
+     * Writes localize.py next to the result file and runs it; the result
+     * file is updated in place and the output goes to localize.log.
+     *
+     * @return empty string on success, otherwise the reason for not starting
+     */
+    QString start_localization(const QString& result_file, int seed = 42, int runners = 1);
+
     inline bool is_running() const {
         return this->process != nullptr;
     }
@@ -90,6 +103,8 @@ signals:
     void finished(bool success, const QString& message, const QString& result_file);
 
 private:
+    QString check_can_start() const;
+    void launch(const QString& script);
     void process_line(const QString& line);
     void write_log();
 

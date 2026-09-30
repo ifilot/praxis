@@ -21,6 +21,8 @@
 
 #include "anaglyph_widget.h"
 
+#include <limits>
+
 #include <QSettings>
 #include <QOpenGLExtraFunctions>
 
@@ -210,61 +212,71 @@ void AnaglyphWidget::load_lighting_settings() {
  * @param[in]  direction  The direction
  */
 void AnaglyphWidget::set_camera_alignment(int direction) {
-    QVector3D dirvec;
+    static const char* names[] = {"DEFAULT", "TOP", "BOTTOM", "LEFT", "RIGHT", "FRONT", "BACK", "FACE-ON", "EDGE-ON"};
 
-    switch((CameraAlignment)direction) {
-    case CameraAlignment::DEFAULT:
-        this->scene->rotation_matrix.setToIdentity();
-        this->scene->rotation_matrix.rotate(20.0, QVector3D(1,0,0));
-        this->scene->rotation_matrix.rotate(30.0, QVector3D(0,0,1));
-        this->update();
-        return;
-    case CameraAlignment::TOP:
-        dirvec = QVector3D(0.0f, 0.0f, 1.0f);
-        emit signal_message_statusbar("Change camera alignment to TOP");
-        break;
-    case CameraAlignment::BOTTOM:
-        dirvec = QVector3D(0.0f, 0.0f, -1.0f);
-        emit signal_message_statusbar("Change camera alignment to BOTTOM");
-        break;
-    case CameraAlignment::LEFT:
-        dirvec = QVector3D(-1.0f, 0.0f, 0.0f);
-        emit signal_message_statusbar("Change camera alignment to LEFT");
-        break;
-    case CameraAlignment::RIGHT:
-        dirvec = QVector3D(1.0f, 0.0f, 0.0f);
-        emit signal_message_statusbar("Change camera alignment to RIGHT");
-        break;
-    case CameraAlignment::FRONT:
-        dirvec = QVector3D(0.0f, 1.0f, 0.0f);
-        emit signal_message_statusbar("Change camera alignment to FRONT");
-        break;
-    case CameraAlignment::BACK:
-        dirvec = QVector3D(0.0f, -1.0f, 0.0f);
-        emit signal_message_statusbar("Change camera alignment to BACK");
-        break;
-    }
-
-    QVector3D axis;
-    float angle;
-
-    // avoid gimball locking
-    if (fabs(dirvec[1]) > .999) {
-        if(dirvec[1] < 0.0) {
-            axis = QVector3D(0.0, 0.0, 1.0);
-            angle = -M_PI;
-        } else {
-            axis = QVector3D(0.0, 0.0, 1.0);
-            angle = 0.0;
+    std::vector<QVector3D> positions;
+    if(this->frame) {
+        for(const Atom& atom : this->frame->get_structure()->get_atoms()) {
+            positions.push_back(atom.get_pos_qtvec());
         }
-    } else {
-        axis = QVector3D::crossProduct(QVector3D(0.0, 1.0, 0.0), dirvec);
-        angle = std::acos(dirvec[1]);
     }
 
-    this->scene->rotation_matrix.setToIdentity();
-    this->scene->rotation_matrix.rotate(qRadiansToDegrees(angle), axis);
+    this->scene->rotation_matrix = Scene::alignment_rotation((CameraAlignment)direction, positions);
+    this->scene->arcball_rotation.setToIdentity();
+    emit signal_message_statusbar(QString("Change camera alignment to %1").arg(names[direction]));
     this->update();
+}
+
+QMatrix4x4 AnaglyphWidget::get_rotation() const {
+    return this->scene->arcball_rotation * this->scene->rotation_matrix;
+}
+
+void AnaglyphWidget::set_rotation(const QMatrix4x4& rotation) {
+    this->scene->rotation_matrix = rotation;
+    this->scene->arcball_rotation.setToIdentity();
+    this->update();
+}
+
+CameraMode AnaglyphWidget::get_camera_mode() const {
+    return this->scene->camera_mode;
+}
+
+int AnaglyphWidget::pick_atom(const QPointF& pos) const {
+    if(!this->frame || this->width() <= 0 || this->height() <= 0) {
+        return -1;
+    }
+
+    // unproject the mouse position onto the near and far planes; this is
+    // valid for both camera modes and takes panning into account
+    const float x = 2.0f * (float)pos.x() / (float)this->width() - 1.0f;
+    const float y = 1.0f - 2.0f * (float)pos.y() / (float)this->height();
+    const QMatrix4x4 model = this->scene->arcball_rotation * this->scene->rotation_matrix;
+    const QMatrix4x4 inv = (this->scene->projection * this->scene->view * model).inverted();
+    const QVector3D p0 = inv.map(QVector3D(x, y, -1.0f));
+    const QVector3D p1 = inv.map(QVector3D(x, y, 1.0f));
+    const QVector3D dir = (p1 - p0).normalized();
+
+    const Structure* structure = this->frame->get_structure().get();
+    const QVector3D ctr = structure->get_center_vector();
+    int best = -1;
+    float best_t = std::numeric_limits<float>::max();
+    for(size_t i = 0; i < structure->get_nr_atoms(); ++i) {
+        const Atom& atom = structure->get_atom(i);
+        const float radius = (float)AtomSettings::get().get_atom_radius_from_elnr(atom.atnr);
+        const QVector3D oc = p0 - (atom.get_pos_qtvec() + ctr);
+        const float b = QVector3D::dotProduct(oc, dir);
+        const float c = oc.lengthSquared() - radius * radius;
+        const float disc = b * b - c;
+        if(disc < 0.0f) {
+            continue;
+        }
+        const float t = -b - std::sqrt(disc);
+        if(t > 0.0f && t < best_t) {
+            best_t = t;
+            best = (int)i;
+        }
+    }
+    return best;
 }
 
 /**
@@ -603,6 +615,7 @@ void AnaglyphWidget::mousePressEvent(QMouseEvent *event) {
 
         // store positions of mouse
         this->m_lastPos = event->pos();
+        this->press_pos = event->pos();
     }
 
     if (event->buttons() & Qt::RightButton) {
@@ -626,6 +639,14 @@ void AnaglyphWidget::mouseReleaseEvent(QMouseEvent *event) {
 
         // unset arcball rotation mode
         this->arcball_rotation_flag = false;
+
+        // a click without dragging selects an atom
+        if((event->pos() - this->press_pos).manhattanLength() <= 3) {
+            const int atom = this->pick_atom(event->position());
+            if(atom >= 0) {
+                emit atom_clicked(atom);
+            }
+        }
     }
 
     if (this->pan_flag && !(event->buttons() & Qt::RightButton)) {
@@ -674,8 +695,9 @@ void AnaglyphWidget::mouseMoveEvent(QMouseEvent *event) {
             // determine rotation vector in model space
             QVector4D axis_model_space = QMatrix4x4(camera_to_model_trans) * axis_cam_space;
 
-            // set the rotation
-            this->set_arcball_rotation(qRadiansToDegrees(angle), axis_model_space);
+            // set the rotation; a drag across the full height of the
+            // widget spans pi on the arcball, which is scaled up here
+            this->set_arcball_rotation(qRadiansToDegrees(angle * rotation_sensitivity), axis_model_space);
         }
     } else if(this->pan_flag) {
         #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)

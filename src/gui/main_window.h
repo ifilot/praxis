@@ -29,7 +29,9 @@ class AnaglyphWidget;
 class CalculationPanel;
 class EnvironmentDialog;
 class JobRunner;
+class OrbitalGalleryWindow;
 class PythonEnvironment;
+class QAction;
 class QLabel;
 class QPlainTextEdit;
 class QProgressBar;
@@ -55,7 +57,15 @@ private:
     QProgressBar* status_progress;
 
     EnvironmentDialog* environment_dialog = nullptr;
+    OrbitalGalleryWindow* gallery = nullptr;
     bool first_check_done = false;
+
+    QString result_file;                    // result currently shown
+    bool localization_running = false;
+
+    QAction* action_gallery = nullptr;
+    QAction* action_localize = nullptr;
+    QAction* action_bonding = nullptr;
 
 public:
     explicit MainWindow(QWidget* parent = nullptr);
@@ -70,6 +80,14 @@ public:
      */
     void show_results_tab(const QString& name);
 
+    /**
+     * @brief Open the orbital gallery ("gallery") or the bonding analysis
+     *        ("bonding") for the current result
+     *
+     * @return the window, or nullptr when there is no result
+     */
+    QWidget* show_tool_window(const QString& name);
+
 protected:
     void closeEvent(QCloseEvent* event) override;
     void moveEvent(QMoveEvent* event) override;
@@ -80,7 +98,8 @@ private:
     void build_statusbar();
 
     void load_molecule(const Molecule& mol);
-    void load_result(const QString& filename, const QString& job_dir);
+    void load_result(const QString& filename, const QString& job_dir, bool fit_camera = true);
+    void update_analysis_actions();
     void append_log(const QString& text);
     void set_stereo(const QString& name);
 
@@ -93,6 +112,10 @@ private slots:
     void open_jobs_folder();
     void show_environment_dialog();
     void show_about();
+
+    void show_gallery();
+    void show_bonding_analysis();
+    void localize_orbitals();
 
     void on_environment_state_changed();
     void on_environment_finished(bool success, const QString& message);

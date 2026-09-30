@@ -55,3 +55,13 @@ struct IsoMesh {
  * @return IsoMesh
  */
 IsoMesh marching_cubes(const ScalarField& field, float isovalue);
+
+/**
+ * @brief Closed, outward-oriented sphere mesh (e.g. to highlight an atom)
+ *
+ * @param center    center of the sphere
+ * @param radius    radius
+ * @param stacks    number of divisions from pole to pole (>= 2)
+ * @param slices    number of divisions around the polar axis (>= 3)
+ */
+IsoMesh sphere_mesh(const glm::vec3& center, float radius, unsigned int stacks = 16, unsigned int slices = 24);

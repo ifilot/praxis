@@ -39,6 +39,7 @@
 #include <QVBoxLayout>
 
 #include "config.h"
+#include "icons.h"
 
 EnvironmentDialog::EnvironmentDialog(PythonEnvironment* _environment, QWidget* parent) :
     QDialog(parent),
@@ -74,11 +75,11 @@ EnvironmentDialog::EnvironmentDialog(PythonEnvironment* _environment, QWidget* p
 
     // actions
     auto* actions = new QHBoxLayout;
-    this->button_install = new QPushButton("Install");
+    this->button_install = new QPushButton(bluecurve_icon("fileimport"), "Install");
     this->button_install->setToolTip("Download Python and install the tested PyQInt version");
     this->button_pinned = new QPushButton(QString("Use tested PyQInt (%1)").arg(PYQINT_PINNED_VERSION));
     this->button_pinned->setToolTip("(Re)install the PyQInt version this program was tested with");
-    this->button_update = new QPushButton("Update to latest PyQInt");
+    this->button_update = new QPushButton(bluecurve_icon("reload"), "Update to latest PyQInt");
     this->button_update->setToolTip("Upgrade to the newest PyQInt release on PyPI (not tested with this version of the GUI)");
     this->button_reset = new QPushButton("Reset environment");
     this->button_reset->setToolTip("Delete the environment completely and install it again");
@@ -111,7 +112,7 @@ EnvironmentDialog::EnvironmentDialog(PythonEnvironment* _environment, QWidget* p
     this->edit_override = new QLineEdit;
     this->edit_override->setPlaceholderText("(managed environment)");
     this->edit_override->setReadOnly(true);
-    this->button_override_browse = new QPushButton("Browse...");
+    this->button_override_browse = new QPushButton(bluecurve_icon("folder"), "Browse...");
     this->button_override_clear = new QPushButton("Use managed");
     advl->addWidget(this->edit_override, 1);
     advl->addWidget(this->button_override_browse);
@@ -120,7 +121,7 @@ EnvironmentDialog::EnvironmentDialog(PythonEnvironment* _environment, QWidget* p
     layout->addWidget(adv);
 
     auto* buttons = new QHBoxLayout;
-    this->button_cancel = new QPushButton("Cancel operation");
+    this->button_cancel = new QPushButton(bluecurve_icon("stop"), "Cancel operation");
     this->button_close = new QPushButton("Close");
     buttons->addWidget(this->button_cancel);
     buttons->addStretch();

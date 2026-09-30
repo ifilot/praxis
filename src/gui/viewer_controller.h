@@ -76,6 +76,9 @@ private:
     QColor color_positive = QColor(30, 120, 220);
     QColor color_negative = QColor(230, 75, 50);
 
+    std::vector<int> highlighted_atoms;
+    QColor color_highlight = QColor(255, 193, 7);
+
     QFutureWatcher<OrbitalBuild>* watcher;
     int generation = 0;
 
@@ -90,7 +93,7 @@ public:
     /**
      * @brief Show the final geometry of a calculation
      */
-    void show_result(std::shared_ptr<JobResult> result);
+    void show_result(std::shared_ptr<JobResult> result, bool fit_camera = true);
 
     /**
      * @brief Show a frame of a geometry optimization trajectory
@@ -109,6 +112,31 @@ public:
     void set_grid_spacing(float spacing);
     void set_opacity(float opacity);
     void set_colors(const QColor& positive, const QColor& negative);
+
+    /**
+     * @brief Draw a translucent halo around these atoms
+     */
+    void set_highlighted_atoms(const std::vector<int>& atoms);
+
+    inline const QColor& get_color_highlight() const {
+        return this->color_highlight;
+    }
+
+    inline const OrbitalGridSettings& get_grid_settings() const {
+        return this->grid;
+    }
+
+    inline bool is_auto_isovalue() const {
+        return this->auto_isovalue;
+    }
+
+    inline float get_enclosed_fraction() const {
+        return this->enclosed_fraction;
+    }
+
+    inline float get_opacity() const {
+        return this->opacity;
+    }
 
     inline const QColor& get_color_positive() const {
         return this->color_positive;

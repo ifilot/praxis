@@ -64,13 +64,22 @@ QString JobRunner::jobs_directory() {
     return settings.value("jobs/directory", default_jobs_directory()).toString();
 }
 
-QString JobRunner::start(const JobSpec& spec) {
+QString JobRunner::check_can_start() const {
     if(this->is_running()) {
         return "Another calculation is still running.";
     }
 
     if(!this->environment->is_ready()) {
         return "The Python environment is not ready. Open Python → Manage environment to install it.";
+    }
+
+    return QString();
+}
+
+QString JobRunner::start(const JobSpec& spec) {
+    const QString problem = this->check_can_start();
+    if(!problem.isEmpty()) {
+        return problem;
     }
 
     const QString invalid = spec.validate();
@@ -93,6 +102,31 @@ QString JobRunner::start(const JobSpec& spec) {
         return err;
     }
 
+    this->result_file = QDir(this->job_dir).filePath(JobScriptWriter::RESULT_FILENAME);
+    this->log_filename = "output.log";
+    this->launch(JobScriptWriter::SCRIPT_FILENAME);
+    return QString();
+}
+
+QString JobRunner::start_localization(const QString& _result_file, int seed, int runners) {
+    const QString problem = this->check_can_start();
+    if(!problem.isEmpty()) {
+        return problem;
+    }
+
+    const QString err = JobScriptWriter::write_localization_script(_result_file, seed, runners);
+    if(!err.isEmpty()) {
+        return err;
+    }
+
+    this->job_dir = QFileInfo(_result_file).absolutePath();
+    this->result_file = QFileInfo(_result_file).absoluteFilePath();
+    this->log_filename = "localize.log";
+    this->launch(JobScriptWriter::LOCALIZATION_SCRIPT_FILENAME);
+    return QString();
+}
+
+void JobRunner::launch(const QString& script) {
     this->stdout_buffer.clear();
     this->log.clear();
     this->cancelled = false;
@@ -107,11 +141,9 @@ QString JobRunner::start(const JobSpec& spec) {
     connect(this->process, &QProcess::errorOccurred, this, &JobRunner::on_error);
 
     this->timer.start();
-    this->process->start(this->environment->python_executable(),
-                         {"-u", JobScriptWriter::SCRIPT_FILENAME});
+    this->process->start(this->environment->python_executable(), {"-u", script});
 
     emit started(this->job_dir);
-    return QString();
 }
 
 void JobRunner::cancel() {
@@ -173,7 +205,7 @@ void JobRunner::on_stderr() {
 }
 
 void JobRunner::write_log() {
-    QFile f(QDir(this->job_dir).filePath("output.log"));
+    QFile f(QDir(this->job_dir).filePath(this->log_filename));
     if(f.open(QIODevice::WriteOnly | QIODevice::Text)) {
         f.write(this->log.toUtf8());
     }
@@ -211,7 +243,6 @@ void JobRunner::on_finished(int exit_code, QProcess::ExitStatus status) {
     this->process = nullptr;
 
     const double elapsed = this->timer.elapsed() / 1000.0;
-    const QString result_file = QDir(this->job_dir).filePath(JobScriptWriter::RESULT_FILENAME);
 
     QString msg;
     bool success = false;
@@ -221,7 +252,7 @@ void JobRunner::on_finished(int exit_code, QProcess::ExitStatus status) {
         msg = "The Python process crashed.";
     } else if(exit_code != 0) {
         msg = QString("The calculation failed (exit code %1); see the output log for details.").arg(exit_code);
-    } else if(!QFileInfo::exists(result_file)) {
+    } else if(!QFileInfo::exists(this->result_file)) {
         msg = "The calculation finished but did not produce a result file.";
     } else {
         success = true;
@@ -231,5 +262,5 @@ void JobRunner::on_finished(int exit_code, QProcess::ExitStatus status) {
     this->log += "\n" + msg + "\n";
     this->write_log();
 
-    emit finished(success, msg, success ? result_file : QString());
+    emit finished(success, msg, success ? this->result_file : QString());
 }

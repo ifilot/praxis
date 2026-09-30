@@ -59,14 +59,14 @@ void ViewerController::show_molecule(const Molecule& mol, bool fit_camera) {
     this->update_frame();
 }
 
-void ViewerController::show_result(std::shared_ptr<JobResult> _result) {
+void ViewerController::show_result(std::shared_ptr<JobResult> _result, bool fit_camera) {
     this->result = std::move(_result);
     this->set_index = -1;
     this->orbital_index = -1;
     this->field.reset();
     this->meshes = OrbitalMeshes();
     this->generation++;
-    this->set_structure(this->result->get_molecule(), true);
+    this->set_structure(this->result->get_molecule(), fit_camera);
     this->update_frame();
 }
 
@@ -144,6 +144,13 @@ void ViewerController::set_colors(const QColor& positive, const QColor& negative
     this->update_frame();
 }
 
+void ViewerController::set_highlighted_atoms(const std::vector<int>& atoms) {
+    this->highlighted_atoms = atoms;
+    if(this->structure) {
+        this->update_frame();
+    }
+}
+
 void ViewerController::rebuild(bool reuse_field) {
     if(!this->result || this->set_index < 0) {
         return;
@@ -213,6 +220,18 @@ void ViewerController::update_frame() {
     if(this->set_index >= 0) {
         add_mesh(this->meshes.positive, this->color_positive);
         add_mesh(this->meshes.negative, this->color_negative);
+    }
+
+    for(int idx : this->highlighted_atoms) {
+        if(idx < 0 || idx >= (int)this->atom_positions.size()) {
+            continue;
+        }
+        const float radius = AtomSettings::get().get_atom_radius_from_elnr(this->structure->get_atom(idx).atnr);
+        const IsoMesh halo = sphere_mesh(this->atom_positions[idx], radius * 1.35f + 0.15f);
+        auto model = std::make_shared<Model>(halo.positions, halo.normals, halo.indices);
+        model->set_color(QVector4D(this->color_highlight.redF(), this->color_highlight.greenF(),
+                                   this->color_highlight.blueF(), 0.45f));
+        frame->add_model(model);
     }
 
     this->widget->set_frame(frame);

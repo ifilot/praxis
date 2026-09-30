@@ -94,6 +94,18 @@ int OrbitalSet::homo() const {
     return result;
 }
 
+QString OrbitalSet::frontier_label(int index) const {
+    const int h = this->homo();
+    if(h < 0) {
+        return QString();
+    }
+    if(index == h) return "HOMO";
+    if(index == h + 1) return "LUMO";
+    if(index < h && h - index <= 3) return QString("HOMO-%1").arg(h - index);
+    if(index > h + 1 && index - h - 1 <= 3) return QString("LUMO+%1").arg(index - h - 1);
+    return QString();
+}
+
 std::shared_ptr<JobResult> JobResult::load(const QString& filename) {
     QFile f(filename);
     if(!f.open(QIODevice::ReadOnly)) {
@@ -261,6 +273,24 @@ double JobResult::total_energy() const {
         }
     }
     return this->scf_energies.empty() ? 0.0 : this->scf_energies.back();
+}
+
+const DenseMatrix* JobResult::find_matrix(const QString& key) const {
+    for(const auto& m : this->matrices) {
+        if(m.first == key) {
+            return &m.second;
+        }
+    }
+    return nullptr;
+}
+
+int JobResult::find_orbital_set(const QString& label) const {
+    for(size_t i = 0; i < this->orbital_sets.size(); ++i) {
+        if(this->orbital_sets[i].label == label) {
+            return (int)i;
+        }
+    }
+    return -1;
 }
 
 Molecule JobResult::get_molecule() const {

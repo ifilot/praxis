@@ -139,6 +139,12 @@ QString Molecule::formula() const {
     return result;
 }
 
+QString Molecule::formula_html() const {
+    QString result = this->formula();
+    result.replace(QRegularExpression("(\\d+)"), "<sub>\\1</sub>");
+    return result;
+}
+
 glm::dvec3 Molecule::centroid() const {
     glm::dvec3 sum(0.0);
     if(this->atoms.empty()) {

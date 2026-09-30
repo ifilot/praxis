@@ -45,18 +45,22 @@
 #include <QUrl>
 
 #include "anaglyph_widget.h"
+#include "bond_analysis_dialog.h"
 #include "calculation/job_result.h"
 #include "calculation/job_runner.h"
 #include "calculation/python_environment.h"
 #include "calculation_panel.h"
 #include "config.h"
 #include "environment_dialog.h"
+#include "icons.h"
 #include "library_dialog.h"
+#include "orbital_gallery_window.h"
 #include "results_panel.h"
 #include "viewer_controller.h"
 
 namespace {
 constexpr const char* MANUAL_URL = "https://ifilot.github.io/pyqint/";
+constexpr const char* GITHUB_URL = "https://github.com/ifilot/pyqint-gui";
 constexpr const char* DEFAULT_MOLECULE = ":/assets/molecules/h2o.xyz";
 }
 
@@ -104,6 +108,9 @@ MainWindow::MainWindow(QWidget* parent) :
     connect(this->results_panel, &ResultsPanel::opacity_changed, this->viewer_controller, &ViewerController::set_opacity);
     connect(this->results_panel, &ResultsPanel::trajectory_frame_selected, this->viewer_controller,
             [this](int frame) { this->viewer_controller->show_trajectory_frame((size_t)frame); });
+    connect(this->results_panel, &ResultsPanel::gallery_requested, this, &MainWindow::show_gallery);
+    connect(this->results_panel, &ResultsPanel::localization_requested, this, &MainWindow::localize_orbitals);
+    connect(this->results_panel, &ResultsPanel::bonding_analysis_requested, this, &MainWindow::show_bonding_analysis);
     connect(this->viewer_controller, &ViewerController::orbital_shown, this->results_panel, &ResultsPanel::on_orbital_shown);
     connect(this->viewer_controller, &ViewerController::busy_changed, this, &MainWindow::on_viewer_busy);
 
@@ -173,32 +180,32 @@ void MainWindow::build_menu() {
     // ------------------------------------------------------------------
     QMenu* menu_file = this->menuBar()->addMenu("&File");
 
-    QAction* action_library = menu_file->addAction(QIcon(":/assets/icons/periodic_table_32.png"), "Molecule &library...");
+    QAction* action_library = menu_file->addAction(bluecurve_icon("accessories-dictionary"), "Molecule &library...");
     action_library->setShortcut(QKeySequence("Ctrl+L"));
     connect(action_library, &QAction::triggered, this, &MainWindow::open_library);
 
-    QAction* action_open = menu_file->addAction(QIcon(":/assets/icons/open.png"), "&Open molecule (.xyz)...");
+    QAction* action_open = menu_file->addAction(bluecurve_icon("document-open"), "&Open molecule (.xyz)...");
     action_open->setShortcut(QKeySequence::Open);
     connect(action_open, &QAction::triggered, this, &MainWindow::open_xyz);
 
-    QAction* action_open_result = menu_file->addAction("Open &result...");
+    QAction* action_open_result = menu_file->addAction(bluecurve_icon("fileimport"), "Open &result...");
     action_open_result->setShortcut(QKeySequence("Ctrl+R"));
     connect(action_open_result, &QAction::triggered, this, &MainWindow::open_result);
 
-    QAction* action_save = menu_file->addAction(QIcon(":/assets/icons/save.png"), "&Save molecule as .xyz...");
+    QAction* action_save = menu_file->addAction(bluecurve_icon("document-save"), "&Save molecule as .xyz...");
     action_save->setShortcut(QKeySequence::Save);
     connect(action_save, &QAction::triggered, this, &MainWindow::save_xyz);
 
-    QAction* action_image = menu_file->addAction("Save &image...");
+    QAction* action_image = menu_file->addAction(bluecurve_icon("image-x-generic"), "Save &image...");
     action_image->setShortcut(QKeySequence("Ctrl+I"));
     connect(action_image, &QAction::triggered, this, &MainWindow::save_image);
 
     menu_file->addSeparator();
-    QAction* action_jobs = menu_file->addAction("Show &job folders");
+    QAction* action_jobs = menu_file->addAction(bluecurve_icon("folder"), "Show &job folders");
     connect(action_jobs, &QAction::triggered, this, &MainWindow::open_jobs_folder);
 
     menu_file->addSeparator();
-    QAction* action_quit = menu_file->addAction(QIcon(":/assets/icons/close.png"), "&Quit");
+    QAction* action_quit = menu_file->addAction(bluecurve_icon("application-exit"), "&Quit");
     action_quit->setShortcut(QKeySequence::Quit);
     connect(action_quit, &QAction::triggered, this, &QMainWindow::close);
 
@@ -207,7 +214,8 @@ void MainWindow::build_menu() {
     // ------------------------------------------------------------------
     QMenu* menu_view = this->menuBar()->addMenu("&View");
 
-    QMenu* menu_projection = menu_view->addMenu("&Projection");
+    // the entries of this menu keep their own (non-Bluecurve) icons
+    QMenu* menu_projection = menu_view->addMenu(bluecurve_icon("display-capplet"), "&Projection");
     auto* group_projection = new QActionGroup(this);
     const std::vector<std::pair<QString, QString>> projections = {
         {"Two-dimensional", "no_stereo_flat"},
@@ -233,7 +241,7 @@ void MainWindow::build_menu() {
         }
     }
 
-    QMenu* menu_camera = menu_view->addMenu("&Camera");
+    QMenu* menu_camera = menu_view->addMenu(bluecurve_icon("camera-photo"), "&Camera");
     auto* group_camera = new QActionGroup(this);
     QAction* action_persp = menu_camera->addAction("&Perspective");
     QAction* action_ortho = menu_camera->addAction("&Orthographic");
@@ -251,17 +259,22 @@ void MainWindow::build_menu() {
         {"Top", CameraAlignment::TOP}, {"Bottom", CameraAlignment::BOTTOM},
         {"Left", CameraAlignment::LEFT}, {"Right", CameraAlignment::RIGHT},
         {"Front", CameraAlignment::FRONT}, {"Back", CameraAlignment::BACK},
+        {"Face-on (perpendicular to the molecule)", CameraAlignment::FACE_ON},
+        {"Edge-on (along the plane of the molecule)", CameraAlignment::EDGE_ON},
     };
     for(const auto& al : alignments) {
         QAction* action = menu_camera->addAction(al.first);
+        if(al.second == CameraAlignment::DEFAULT) {
+            action->setIcon(bluecurve_icon("go-home"));
+        }
         const int dir = (int)al.second;
         connect(action, &QAction::triggered, this, [this, dir]() { this->viewer->set_camera_alignment(dir); });
     }
     menu_camera->addSeparator();
-    QAction* action_reset_pan = menu_camera->addAction("Reset panning");
+    QAction* action_reset_pan = menu_camera->addAction(bluecurve_icon("zoom-best-fit"), "Reset panning");
     connect(action_reset_pan, &QAction::triggered, this->viewer, &AnaglyphWidget::reset_panning);
 
-    QAction* action_axes = menu_view->addAction(QIcon(":/assets/icons/axes_32.png"), "Show coordinate &axes");
+    QAction* action_axes = menu_view->addAction("Show coordinate &axes");
     action_axes->setCheckable(true);
     action_axes->setChecked(true);
     connect(action_axes, &QAction::toggled, this->viewer, &AnaglyphWidget::set_show_axes);
@@ -272,19 +285,40 @@ void MainWindow::build_menu() {
     }
 
     // ------------------------------------------------------------------
+    // Analysis
+    // ------------------------------------------------------------------
+    QMenu* menu_analysis = this->menuBar()->addMenu("&Analysis");
+    this->action_gallery = menu_analysis->addAction(bluecurve_icon("gnome-stock-insert-table"), "Orbital &gallery...");
+    this->action_gallery->setShortcut(QKeySequence("Ctrl+G"));
+    this->action_gallery->setStatusTip("Show all molecular orbitals side by side and export them as images");
+    connect(this->action_gallery, &QAction::triggered, this, &MainWindow::show_gallery);
+
+    this->action_localize = menu_analysis->addAction(bluecurve_icon("gnome-run"), "&Localize orbitals (Foster-Boys)");
+    this->action_localize->setStatusTip("Add Foster-Boys localized orbitals to the current result without repeating the calculation");
+    connect(this->action_localize, &QAction::triggered, this, &MainWindow::localize_orbitals);
+
+    menu_analysis->addSeparator();
+    this->action_bonding = menu_analysis->addAction(bluecurve_icon("accessories-calculator"), "Orbital &bonding analysis (MOHP)...");
+    this->action_bonding->setStatusTip("Orbital-resolved Hamilton, overlap and bond-index populations for a pair of atoms");
+    connect(this->action_bonding, &QAction::triggered, this, &MainWindow::show_bonding_analysis);
+
+    // ------------------------------------------------------------------
     // Python
     // ------------------------------------------------------------------
     QMenu* menu_python = this->menuBar()->addMenu("&Python");
-    QAction* action_env = menu_python->addAction(QIcon(":/assets/icons/tools.png"), "&Manage environment...");
+    QAction* action_env = menu_python->addAction(bluecurve_icon("preferences-system"), "&Manage environment...");
     connect(action_env, &QAction::triggered, this, &MainWindow::show_environment_dialog);
 
     // ------------------------------------------------------------------
     // Help
     // ------------------------------------------------------------------
     QMenu* menu_help = this->menuBar()->addMenu("&Help");
-    QAction* action_manual = menu_help->addAction("PyQInt &manual");
+    QAction* action_manual = menu_help->addAction(bluecurve_icon("help-contents"), "PyQInt &manual");
     connect(action_manual, &QAction::triggered, this, []() { QDesktopServices::openUrl(QUrl(MANUAL_URL)); });
-    QAction* action_about = menu_help->addAction(QIcon(":/assets/icons/info.png"), "&About");
+    QAction* action_github = menu_help->addAction(bluecurve_icon("icon-globe"), QString("%1 on &GitHub").arg(PROGRAM_NAME));
+    connect(action_github, &QAction::triggered, this, []() { QDesktopServices::openUrl(QUrl(GITHUB_URL)); });
+    menu_help->addSeparator();
+    QAction* action_about = menu_help->addAction(bluecurve_icon("help-about"), "&About");
     connect(action_about, &QAction::triggered, this, &MainWindow::show_about);
 }
 
@@ -314,11 +348,16 @@ void MainWindow::build_statusbar() {
 void MainWindow::load_molecule(const Molecule& mol) {
     this->calculation_panel->set_molecule(mol);
     this->results_panel->clear();
+    this->result_file.clear();
+    if(this->gallery != nullptr) {
+        this->gallery->close();
+    }
+    this->update_analysis_actions();
     this->viewer_controller->show_molecule(mol);
     this->statusBar()->showMessage(QString("Loaded %1 (%2)").arg(mol.get_name(), mol.formula()), 5000);
 }
 
-void MainWindow::load_result(const QString& filename, const QString& job_dir) {
+void MainWindow::load_result(const QString& filename, const QString& job_dir, bool fit_camera) {
     std::shared_ptr<JobResult> result;
     try {
         result = JobResult::load(filename);
@@ -330,8 +369,91 @@ void MainWindow::load_result(const QString& filename, const QString& job_dir) {
     // show the geometry the result belongs to in the calculation panel
     this->calculation_panel->set_molecule(result->get_molecule());
     this->calculation_panel->load_settings(*result);
-    this->viewer_controller->show_result(result);
+    this->viewer_controller->show_result(result, fit_camera);
     this->results_panel->set_result(result, job_dir);
+    this->result_file = QFileInfo(filename).absoluteFilePath();
+    this->update_analysis_actions();
+
+    if(this->gallery != nullptr && this->gallery->isVisible()) {
+        this->gallery->set_result(result, job_dir, this->results_panel->current_set());
+    }
+}
+
+void MainWindow::update_analysis_actions() {
+    const auto& result = this->results_panel->get_result();
+    const bool available = this->environment->is_ready() && !this->runner->is_running();
+    const bool can_localize = result && !result->is_unrestricted() && result->find_orbital_set("Foster-Boys") < 0;
+
+    if(this->action_gallery != nullptr) {
+        this->action_gallery->setEnabled((bool)result);
+        this->action_localize->setEnabled(can_localize && available);
+        this->action_bonding->setEnabled(result && result->positions.size() >= 2);
+    }
+    this->results_panel->set_localization_available(available);
+}
+
+QWidget* MainWindow::show_tool_window(const QString& name) {
+    if(!this->results_panel->get_result()) {
+        return nullptr;
+    }
+    if(name == "gallery") {
+        this->show_gallery();
+        return this->gallery;
+    }
+    if(name == "bonding") {
+        this->show_bonding_analysis();
+        return this->findChild<BondAnalysisDialog*>();
+    }
+    return nullptr;
+}
+
+void MainWindow::show_gallery() {
+    const auto& result = this->results_panel->get_result();
+    if(!result) {
+        return;
+    }
+
+    if(this->gallery == nullptr) {
+        this->gallery = new OrbitalGalleryWindow(this->viewer, this->viewer_controller, this);
+        connect(this->gallery, &OrbitalGalleryWindow::orbital_activated, this, [this](int set, int orbital) {
+            this->results_panel->select_orbital(set, orbital);
+            this->results_panel->show_tab("orbitals");
+            this->raise();
+            this->activateWindow();
+        });
+    }
+    if(!this->gallery->isVisible()) {
+        this->gallery->set_result(result, this->results_panel->get_job_dir(), this->results_panel->current_set());
+    }
+    this->gallery->show();
+    this->gallery->raise();
+    this->gallery->activateWindow();
+}
+
+void MainWindow::show_bonding_analysis() {
+    const auto& result = this->results_panel->get_result();
+    if(!result || result->positions.size() < 2) {
+        return;
+    }
+    auto* dialog = new BondAnalysisDialog(result, this->results_panel->current_set(), this->viewer_controller, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->open();
+}
+
+void MainWindow::localize_orbitals() {
+    const auto& result = this->results_panel->get_result();
+    if(!result || result->is_unrestricted() || this->result_file.isEmpty()) {
+        return;
+    }
+
+    const QString err = this->runner->start_localization(this->result_file);
+    if(!err.isEmpty()) {
+        QMessageBox::warning(this, "Cannot localize orbitals", err);
+        return;
+    }
+    this->localization_running = true;
+    this->append_log("Constructing Foster-Boys orbitals from the stored canonical orbitals "
+                     "(the Hartree-Fock calculation is not repeated).\n\n");
 }
 
 void MainWindow::open_file(const QString& path) {
@@ -457,6 +579,7 @@ void MainWindow::on_environment_state_changed() {
     }
     this->status_environment->setText(text);
     this->calculation_panel->set_environment_ready(this->environment->is_ready());
+    this->update_analysis_actions();
 }
 
 void MainWindow::on_environment_finished(bool success, const QString& message) {
@@ -502,6 +625,7 @@ void MainWindow::on_job_started(const QString& job_dir) {
     this->calculation_panel->set_status("Starting Python...");
     this->status_busy->setText("Calculation running...");
     this->status_progress->setVisible(true);
+    this->update_analysis_actions();
 }
 
 void MainWindow::on_job_stage(const QString& stage) {
@@ -520,13 +644,26 @@ void MainWindow::on_job_stage(const QString& stage) {
 }
 
 void MainWindow::on_job_finished(bool success, const QString& message, const QString& result_file) {
+    const bool localization = this->localization_running;
+    this->localization_running = false;
+
     this->calculation_panel->set_running(false);
     this->calculation_panel->set_status(message);
     this->status_busy->clear();
     this->status_progress->setVisible(false);
     this->statusBar()->showMessage(message, 8000);
+    this->update_analysis_actions();
 
-    if(success) {
+    if(success && localization) {
+        // keep the camera; show the new orbitals
+        this->load_result(result_file, this->runner->get_job_directory(), false);
+        const auto& result = this->results_panel->get_result();
+        const int fb = result ? result->find_orbital_set("Foster-Boys") : -1;
+        if(fb >= 0) {
+            this->results_panel->select_orbital(fb, std::max(0, result->orbital_sets[fb].homo()));
+            this->results_panel->show_tab("orbitals");
+        }
+    } else if(success) {
         this->load_result(result_file, this->runner->get_job_directory());
     } else {
         QMessageBox::warning(this, "Calculation failed",
@@ -560,9 +697,11 @@ void MainWindow::show_about() {
         QString("<h3>%1 %2</h3>"
                 "<p>Graphical user interface for <a href='%3'>PyQInt</a>, an educational "
                 "Hartree-Fock program.</p>"
-                "<p>Author: Ivo Filot<br>License: GNU General Public License v3</p>"
+                "<p>Source code, releases and issue tracker: <a href='%7'>%7</a></p>"
+                "<p>Author: Ivo Filot<br>License: GNU General Public License v3<br>"
+                "Icons: Bluecurve icon theme (Red Hat, GPL)</p>"
                 "<p><small>Build %4 &middot; tested with PyQInt %5 &middot; Qt %6</small></p>")
-            .arg(PROGRAM_NAME, PROGRAM_VERSION, MANUAL_URL, GIT_HASH, PYQINT_PINNED_VERSION, qVersion()));
+            .arg(PROGRAM_NAME, PROGRAM_VERSION, MANUAL_URL, GIT_HASH, PYQINT_PINNED_VERSION, qVersion(), GITHUB_URL));
 }
 
 void MainWindow::moveEvent(QMoveEvent* event) {

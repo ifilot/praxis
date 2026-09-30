@@ -49,6 +49,7 @@
 
 #include "calculation/job_spec.h"
 #include "data/units.h"
+#include "icons.h"
 #include "line_plot_widget.h"
 #include "mo_diagram_widget.h"
 
@@ -112,6 +113,11 @@ QWidget* ResultsPanel::build_orbitals_tab() {
     lset->addWidget(new QLabel("Orbitals:"));
     this->combo_set = new QComboBox;
     lset->addWidget(this->combo_set, 1);
+    this->button_gallery = new QPushButton(bluecurve_icon("gnome-stock-insert-table"), "Gallery");
+    this->button_gallery->setToolTip("Show all orbitals side by side in a separate window (Ctrl+G)");
+    lset->addWidget(this->button_gallery);
+    this->button_localize = new QPushButton(bluecurve_icon("gnome-run"), "Localize");
+    lset->addWidget(this->button_localize);
     layout->addLayout(lset);
 
     this->table_orbitals = new QTableWidget;
@@ -187,6 +193,8 @@ QWidget* ResultsPanel::build_orbitals_tab() {
     connect(this->combo_set, &QComboBox::currentIndexChanged, this, [this]() {
         this->fill_orbital_table();
     });
+    connect(this->button_gallery, &QPushButton::clicked, this, &ResultsPanel::gallery_requested);
+    connect(this->button_localize, &QPushButton::clicked, this, &ResultsPanel::localization_requested);
     connect(this->table_orbitals, &QTableWidget::itemSelectionChanged, this, [this]() {
         this->update_contributions();
         this->emit_orbital_selection();
@@ -246,6 +254,17 @@ QWidget* ResultsPanel::build_populations_tab() {
     this->table_populations->setEditTriggers(QAbstractItemView::NoEditTriggers);
     this->table_populations->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     layout->addWidget(this->table_populations, 1);
+
+    auto* bonding = new QGroupBox("Bonding between two atoms");
+    auto* lbonding = new QVBoxLayout(bonding);
+    auto* binfo = new QLabel("Which molecular orbitals bond or antibond a pair of atoms? The orbital-resolved "
+                             "Hamilton, overlap and bond-index populations (MOHP, MOOP, MOBI) answer this.");
+    binfo->setWordWrap(true);
+    lbonding->addWidget(binfo);
+    this->button_bonding = new QPushButton(bluecurve_icon("accessories-calculator"), "Orbital bonding analysis...");
+    lbonding->addWidget(this->button_bonding, 0, Qt::AlignLeft);
+    layout->addWidget(bonding);
+    connect(this->button_bonding, &QPushButton::clicked, this, &ResultsPanel::bonding_analysis_requested);
     return w;
 }
 
@@ -332,6 +351,9 @@ void ResultsPanel::clear() {
     this->label_contributions->clear();
     this->label_orbital_info->clear();
     this->label_matrix_info->clear();
+    this->button_gallery->setEnabled(false);
+    this->button_bonding->setEnabled(false);
+    this->button_localize->setEnabled(false);
 
     for(int i = 1; i < this->tabs->count(); ++i) {
         this->tabs->setTabEnabled(i, false);
@@ -348,6 +370,8 @@ void ResultsPanel::set_result(std::shared_ptr<JobResult> _result, const QString&
         this->tabs->setTabEnabled(i, true);
     }
     this->tabs->setTabEnabled(this->tabs->indexOf(this->tab_optimization), (bool)this->result->optimization);
+    this->button_gallery->setEnabled(true);
+    this->button_bonding->setEnabled(this->result->positions.size() >= 2);
 
     this->fill_summary();
     this->fill_diagram();
@@ -369,6 +393,27 @@ void ResultsPanel::set_result(std::shared_ptr<JobResult> _result, const QString&
         }
     }
     this->fill_orbital_table();
+    this->update_localize_button();
+}
+
+void ResultsPanel::set_localization_available(bool available) {
+    this->localization_available = available;
+    this->update_localize_button();
+}
+
+void ResultsPanel::update_localize_button() {
+    const bool restricted = this->result && !this->result->is_unrestricted();
+    const bool localized = this->result && this->result->find_orbital_set("Foster-Boys") >= 0;
+    this->button_localize->setVisible(!this->result || restricted);
+    this->button_localize->setEnabled(restricted && !localized && this->localization_available);
+    if(localized) {
+        this->button_localize->setToolTip("The Foster-Boys localized orbitals are available in the list of orbitals.");
+    } else if(!this->localization_available) {
+        this->button_localize->setToolTip("Localization requires the Python environment and no running calculation.");
+    } else {
+        this->button_localize->setToolTip("Construct Foster-Boys localized orbitals from the occupied orbitals.\n"
+                                          "The Hartree-Fock calculation is not repeated.");
+    }
 }
 
 void ResultsPanel::fill_summary() {
@@ -378,7 +423,7 @@ void ResultsPanel::fill_summary() {
     const QString basis = r.job.contains("basis") ? JobSpec::basis_set_label(r.job["basis"].toString()) : QString("unknown");
 
     QString html;
-    html += QString("<h2>%1 <small>(%2)</small></h2>").arg(r.molecule_name.toHtmlEscaped(), r.get_molecule().formula());
+    html += QString("<h2>%1 <small>(%2)</small></h2>").arg(r.molecule_name.toHtmlEscaped(), r.get_molecule().formula_html());
     html += QString("<p>%1 %2 &middot; basis set <b>%3</b><br>").arg(method, type, basis.toHtmlEscaped());
     html += QString("charge %1 &middot; multiplicity %2 &middot; %3 electrons").arg(r.charge).arg(r.multiplicity).arg(r.nelec);
     if(r.is_unrestricted()) {
@@ -468,18 +513,6 @@ void ResultsPanel::fill_summary() {
     this->summary->setHtml(html);
 }
 
-QString ResultsPanel::orbital_label(const OrbitalSet& set, int index) {
-    const int homo = set.homo();
-    if(homo < 0) {
-        return QString();
-    }
-    if(index == homo) return "HOMO";
-    if(index == homo + 1) return "LUMO";
-    if(index < homo && homo - index <= 3) return QString("HOMO-%1").arg(homo - index);
-    if(index > homo + 1 && index - homo - 1 <= 3) return QString("LUMO+%1").arg(index - homo - 1);
-    return QString();
-}
-
 void ResultsPanel::fill_orbital_table() {
     this->table_orbitals->setRowCount(0);
     this->label_contributions->clear();
@@ -495,7 +528,7 @@ void ResultsPanel::fill_orbital_table() {
         auto* idx = new QTableWidgetItem(QString::number(i + 1));
         idx->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
         this->table_orbitals->setItem(i, 0, idx);
-        this->table_orbitals->setItem(i, 1, text_item(orbital_label(set, i)));
+        this->table_orbitals->setItem(i, 1, text_item(set.frontier_label(i)));
         this->table_orbitals->setItem(i, 2, number_item(set.energies[i], 5));
         this->table_orbitals->setItem(i, 3, number_item(set.energies[i] * HARTREE_TO_EV, 3));
         this->table_orbitals->setItem(i, 4, number_item(set.occupations[i], 0));

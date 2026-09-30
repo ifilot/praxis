@@ -72,10 +72,16 @@ class AnaglyphWidget : public QOpenGLWidget, protected QOpenGLFunctions {
 
 private:
     static constexpr int supersample_scale = 2;
+
+    // rotation angle (arcball) per unit of mouse movement; with 1.0, a drag
+    // over the full height of the widget rotates the molecule by pi
+    static constexpr float rotation_sensitivity = 2.0f;
+
     int msaa_samples = 4;
     int sphere_tesselation_level = 4;
 
     QPoint m_lastPos;
+    QPoint press_pos;
     QVector3D pan_offset = QVector3D(0.0f, 0.0f, 0.0f);
 
     QString root_path;
@@ -215,6 +221,23 @@ public:
      * @param[in]  mode  The mode
      */
     void set_camera_mode(int mode);
+
+    CameraMode get_camera_mode() const;
+
+    /**
+     * @brief Current orientation of the molecule (including a pending arcball rotation)
+     */
+    QMatrix4x4 get_rotation() const;
+
+    /**
+     * @brief Set the orientation of the molecule
+     */
+    void set_rotation(const QMatrix4x4& rotation);
+
+    /**
+     * @brief Index of the atom under a position in the widget (-1 if none)
+     */
+    int pick_atom(const QPointF& pos) const;
 
     /**
      * @brief Sets whether to show axes or not
@@ -447,4 +470,9 @@ signals:
      * Transmit message to status bar
      */
     void signal_message_statusbar(const QString& msg);
+
+    /**
+     * @brief An atom was clicked (without dragging)
+     */
+    void atom_clicked(int index);
 };

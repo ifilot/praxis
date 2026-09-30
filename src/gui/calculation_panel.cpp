@@ -33,6 +33,7 @@
 #include <QStandardItemModel>
 #include <QVBoxLayout>
 
+#include "icons.h"
 #include "line_plot_widget.h"
 
 namespace {
@@ -64,9 +65,9 @@ CalculationPanel::CalculationPanel(QWidget* parent) :
     this->label_molecule->setTextFormat(Qt::RichText);
     lmol->addWidget(this->label_molecule);
     auto* lmolbuttons = new QHBoxLayout;
-    this->button_library = new QPushButton("Library...");
+    this->button_library = new QPushButton(bluecurve_icon("accessories-dictionary"), "Library...");
     this->button_library->setToolTip("Choose one of the molecules shipped with the program");
-    this->button_open = new QPushButton("Open .xyz...");
+    this->button_open = new QPushButton(bluecurve_icon("document-open"), "Open .xyz...");
     this->button_open->setToolTip("Load a molecule from an .xyz file (coordinates in angstrom)");
     lmolbuttons->addWidget(this->button_library);
     lmolbuttons->addWidget(this->button_open);
@@ -167,13 +168,13 @@ CalculationPanel::CalculationPanel(QWidget* parent) :
     layout->addWidget(this->label_validation);
 
     auto* lrun = new QHBoxLayout;
-    this->button_run = new QPushButton("Run calculation");
+    this->button_run = new QPushButton(bluecurve_icon("media-playback-start"), "Run calculation");
     this->button_run->setDefault(true);
     QFont bold = this->button_run->font();
     bold.setBold(true);
     this->button_run->setFont(bold);
     this->button_run->setMinimumHeight(32);
-    this->button_cancel = new QPushButton("Cancel");
+    this->button_cancel = new QPushButton(bluecurve_icon("stop"), "Cancel");
     this->button_cancel->setMinimumHeight(32);
     lrun->addWidget(this->button_run, 1);
     lrun->addWidget(this->button_cancel);
@@ -302,7 +303,7 @@ void CalculationPanel::update_molecule_label() {
     }
     const int ne = this->molecule.nuclear_charge() - this->spin_charge->value();
     this->label_molecule->setText(QString("<b>%1</b><br>%2 &middot; %3 atoms &middot; %4 electrons")
-        .arg(this->molecule.get_name().toHtmlEscaped(), this->molecule.formula())
+        .arg(this->molecule.get_name().toHtmlEscaped(), this->molecule.formula_html())
         .arg(this->molecule.size()).arg(ne));
 }
 

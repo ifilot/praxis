@@ -10,9 +10,15 @@ public PyQInt API; this module only takes care of two things:
 
 You can safely run a generated job script outside of the GUI; the JSON file
 it produces can be re-opened in PyQInt-GUI via File -> Open result.
+
+For post-processing (e.g. orbital localization), load_result() rebuilds the
+result dictionary of HF.rhf() from such a JSON file without repeating the
+Hartree-Fock calculation, and add_localization() adds localized orbitals to
+the file.
 """
 
 import json
+import os
 import platform
 import sys
 import time
@@ -189,6 +195,22 @@ def _hf_to_dict(hf):
     return scf, orbitals, matrices
 
 
+def _fosterboys_set(fosterboys, nelec, N):
+    nocc = int(nelec) // 2
+    return _orbital_set("Foster-Boys", "restricted", fosterboys["orbe"],
+                        fosterboys["orbc"],
+                        [2 if i < nocc else 0 for i in range(N)])
+
+
+def _localization_to_dict(fosterboys):
+    return {
+        "method": "foster-boys",
+        "r2start": _scalar(fosterboys["r2start"]),
+        "r2final": _scalar(fosterboys["r2final"]),
+        "iterations": int(fosterboys["nriter"]),
+    }
+
+
 # ---------------------------------------------------------------------------
 # public API
 # ---------------------------------------------------------------------------
@@ -241,18 +263,8 @@ def export_result(path, *, job, mol, hf, fosterboys=None, geomopt=None,
         result["timing"]["walltime"] = float(walltime)
 
     if fosterboys is not None:
-        nocc = int(hf["nelec"]) // 2
-        N = len(hf["cgfs"])
-        fbset = _orbital_set("Foster-Boys", "restricted", fosterboys["orbe"],
-                             fosterboys["orbc"],
-                             [2 if i < nocc else 0 for i in range(N)])
-        orbitals.append(fbset)
-        result["localization"] = {
-            "method": "foster-boys",
-            "r2start": _scalar(fosterboys["r2start"]),
-            "r2final": _scalar(fosterboys["r2final"]),
-            "iterations": int(fosterboys["nriter"]),
-        }
+        orbitals.append(_fosterboys_set(fosterboys, hf["nelec"], len(hf["cgfs"])))
+        result["localization"] = _localization_to_dict(fosterboys)
 
     if geomopt is not None:
         opt = geomopt["opt"]
@@ -264,8 +276,110 @@ def export_result(path, *, job, mol, hf, fosterboys=None, geomopt=None,
             "forces": [_mat(f) for f in geomopt["forces"]],
         }
 
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(result, f)
+    _write_json(path, result)
 
     progress("done", path=path)
     return result
+
+
+def load_result(path):
+    """
+    Rebuild the result dictionary of a restricted Hartree-Fock calculation
+    from a result file written by export_result().
+
+    The Hartree-Fock equations are *not* solved again: the basis functions
+    are rebuilt from the molecule and the basis set, while the canonical
+    orbitals and the Fock, overlap and density matrices are read from the
+    file. The dictionary can be passed to e.g. pyqint.FosterBoys or
+    pyqint.PopulationAnalysis.
+
+    Parameters
+    ----------
+    path : str
+        Result file (result.json).
+
+    Returns
+    -------
+    dict
+        Same keys as the result of HF.rhf() that are needed for
+        post-processing.
+    """
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+
+    if data["scf"]["method"] != "rhf":
+        raise ValueError("only results of restricted Hartree-Fock "
+                         "calculations can be post-processed")
+
+    mol = pyqint.Molecule(data["molecule"]["name"])
+    for atom in data["molecule"]["atoms"]:
+        mol.add_atom(atom["element"], *atom["position"], unit="bohr")
+    mol.set_charge(data["molecule"]["charge"])
+
+    cgfs, nuclei = mol.build_basis(data["job"]["basis"])
+    if len(cgfs) != len(data["basis"]):
+        raise ValueError("the basis set does not match the result file")
+    for cgf, stored in zip(cgfs, data["basis"]):
+        if np.linalg.norm(np.asarray(cgf.p) - np.asarray(stored["center"])) > 1e-6:
+            raise ValueError("the basis set does not match the result file")
+
+    canonical = next(o for o in data["orbitals"] if o["label"] == "Canonical")
+    matrices = data["matrices"]
+
+    def matrix(key):
+        return np.asarray(matrices[key]["data"], dtype=np.float64)
+
+    return {
+        "mol": mol,
+        "nuclei": nuclei,
+        "cgfs": cgfs,
+        "nelec": int(data["scf"]["nelec"]),
+        "energy": data["scf"]["components"].get("energy"),
+        "orbe": np.asarray(canonical["energies"], dtype=np.float64),
+        "orbc": np.asarray(canonical["coefficients"], dtype=np.float64).T,
+        "fock": matrix("fock"),
+        "overlap": matrix("overlap"),
+        "density": matrix("density"),
+    }
+
+
+def add_localization(path, fosterboys, walltime=None):
+    """
+    Add (or replace) Foster-Boys localized orbitals in a result file.
+
+    Parameters
+    ----------
+    path : str
+        Result file (result.json).
+    fosterboys : dict
+        Result dictionary of FosterBoys.run().
+    walltime : float, optional
+        Time needed for the localization (s).
+    """
+    progress("export")
+
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+
+    orbitals = [o for o in data["orbitals"] if o["label"] != "Foster-Boys"]
+    orbitals.append(_fosterboys_set(fosterboys, data["scf"]["nelec"],
+                                    len(data["basis"])))
+    data["orbitals"] = orbitals
+    data["localization"] = _localization_to_dict(fosterboys)
+    data["job"]["foster_boys"] = True
+    if walltime is not None:
+        data.setdefault("timing", {})["localization"] = float(walltime)
+
+    _write_json(path, data)
+
+    progress("done", path=path)
+    return data
+
+
+def _write_json(path, data):
+    # write to a temporary file first such that an interrupted run never
+    # leaves a truncated result file behind
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+    os.replace(tmp, path)

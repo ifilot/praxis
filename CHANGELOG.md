@@ -5,7 +5,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-Initial version (0.1.0), tested with PyQInt 1.4.3, Python 3.12 and uv 0.12.20.
+## [0.2.0] - 2026-09-30
+
+Tested with PyQInt 1.4.3, Python 3.12 and uv 0.12.20.
+
+### Added
+- Added an orbital gallery (Analysis → Orbital gallery, Ctrl+G) that shows all orbitals, the occupied orbitals, the frontier orbitals or a custom range in a grid; all orbitals rotate together, can be shown from preset directions (including face-on and edge-on views derived from the principal axes of the molecule, or the orientation of the main viewer) and can be exported as one PNG image per orbital
+- Added an orbital bonding analysis (Analysis → Orbital bonding analysis, or the Charges tab) with the orbital-resolved Hamilton (MOHP), overlap (MOOP) and bond-index (MOBI) populations of a pair of atoms, computed in the GUI from the stored matrices (identical to `pyqint.PopulationAnalysis`, and extended to unrestricted calculations); atoms are chosen by clicking them in 3D and are highlighted
+- Added Foster-Boys localization of an existing restricted result (Localize button in the Orbitals tab, or Analysis → Localize orbitals) through a generated `localize.py` script that rebuilds the Hartree-Fock result from `result.json` instead of repeating the calculation
+- Added face-on and edge-on camera alignments to View → Camera
+- Added a link to the GitHub repository to the Help menu and the About dialog
+- Added screenshots to the README
+- Added the `--show gallery|bonding` command-line option to open (and, with `--screenshot`, capture) the orbital gallery or the bonding analysis
+- Added unit tests for the bonding analysis (against PyQInt reference values), localization scripts, camera orientations and highlight meshes, plus an opt-in end-to-end localization test
+
+### Changed
+- Changed the menu, toolbar and button icons to the Bluecurve icon theme (the icons of the stereoscopic projection modes are unchanged)
+- Changed mouse rotation to be twice as sensitive: dragging across the full height of the viewer now rotates the molecule by a full turn instead of half a turn
+- Changed chemical formulas to use subscripts (molecule library, calculation panel and summary) and the molecule library to show the selected row in white text
+
+### Fixed
+- Fixed the name of lithium hydride in the molecule library
+
+## [0.1.0]
+
+Initial version, tested with PyQInt 1.4.3, Python 3.12 and uv 0.12.20.
 
 ### Added
 - Added a Qt 6 desktop application for setting up, running and analysing PyQInt Hartree-Fock calculations without writing Python

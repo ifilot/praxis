@@ -21,6 +21,7 @@
 
 #include "marching_cubes.h"
 
+#include <algorithm>
 #include <cmath>
 #include <unordered_map>
 
@@ -179,6 +180,49 @@ IsoMesh marching_cubes(const ScalarField& field, float isovalue) {
                 mesh.normals[v] = glm::normalize(face_normals[v]);
             }
         }
+    }
+
+    return mesh;
+}
+
+IsoMesh sphere_mesh(const glm::vec3& center, float radius, unsigned int stacks, unsigned int slices) {
+    IsoMesh mesh;
+    stacks = std::max(2u, stacks);
+    slices = std::max(3u, slices);
+
+    auto add_vertex = [&](const glm::vec3& n) {
+        mesh.positions.push_back(center + radius * n);
+        mesh.normals.push_back(n);
+    };
+
+    // north pole, rings (without seam duplicates), south pole
+    add_vertex(glm::vec3(0.0f, 0.0f, 1.0f));
+    for(unsigned int i = 1; i < stacks; ++i) {
+        const float theta = (float)M_PI * (float)i / (float)stacks;
+        for(unsigned int j = 0; j < slices; ++j) {
+            const float phi = 2.0f * (float)M_PI * (float)j / (float)slices;
+            add_vertex(glm::vec3(std::sin(theta) * std::cos(phi), std::sin(theta) * std::sin(phi), std::cos(theta)));
+        }
+    }
+    add_vertex(glm::vec3(0.0f, 0.0f, -1.0f));
+
+    const uint32_t south = (uint32_t)mesh.positions.size() - 1;
+    auto ring = [slices](unsigned int i, unsigned int j) {     // i = 1 .. stacks-1
+        return (uint32_t)(1 + (i - 1) * slices + (j % slices));
+    };
+    auto triangle = [&mesh](uint32_t a, uint32_t b, uint32_t c) {
+        mesh.indices.insert(mesh.indices.end(), {a, b, c});
+    };
+
+    // counter-clockwise when seen from outside: moving down (increasing
+    // theta) and then along increasing phi
+    for(unsigned int j = 0; j < slices; ++j) {
+        triangle(0, ring(1, j), ring(1, j + 1));
+        for(unsigned int i = 1; i + 1 < stacks; ++i) {
+            triangle(ring(i, j), ring(i + 1, j), ring(i + 1, j + 1));
+            triangle(ring(i, j), ring(i + 1, j + 1), ring(i, j + 1));
+        }
+        triangle(ring(stacks - 1, j), south, ring(stacks - 1, j + 1));
     }
 
     return mesh;

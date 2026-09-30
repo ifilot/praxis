@@ -54,27 +54,40 @@ int main(int argc, char* argv[]) {
     QCommandLineOption opt_tab("results-tab",
         "Tab of the results panel to show (summary, orbitals, diagram, charges, matrices, optimization).", "tab");
     parser.addOption(opt_tab);
+    QCommandLineOption opt_show("show",
+        "Window to open for a result: gallery (orbital gallery) or bonding (bonding analysis). "
+        "With --screenshot, this window is captured instead of the main window.", "window");
+    parser.addOption(opt_show);
     parser.process(app);
 
     MainWindow window;
     window.show();
 
+    QWidget* captured = &window;
     const QStringList files = parser.positionalArguments();
     if(!files.isEmpty()) {
         const QString file = files.front();
         const QString tab = parser.value(opt_tab);
-        QTimer::singleShot(250, &window, [&window, file, tab]() {
+        const QString show = parser.value(opt_show);
+        QTimer::singleShot(250, &window, [&window, &captured, file, tab, show]() {
             window.open_file(file);
             if(!tab.isEmpty()) {
                 window.show_results_tab(tab);
+            }
+            if(!show.isEmpty()) {
+                QWidget* w = window.show_tool_window(show);
+                if(w != nullptr) {
+                    captured = w;
+                }
             }
         });
     }
 
     if(parser.isSet(opt_screenshot)) {
         const QString image = parser.value(opt_screenshot);
-        QTimer::singleShot(4000, &window, [&window, image]() {
-            window.grab().save(image);
+        const int delay = parser.isSet(opt_show) ? 12000 : 4000;     // leave time to evaluate the orbitals
+        QTimer::singleShot(delay, &window, [&captured, image]() {
+            captured->grab().save(image);
             QApplication::quit();
         });
     }

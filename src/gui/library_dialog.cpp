@@ -24,14 +24,73 @@
 #include <algorithm>
 #include <stdexcept>
 
+#include <QAbstractTextDocumentLayout>
+#include <QApplication>
 #include <QDebug>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPainter>
+#include <QStyledItemDelegate>
+#include <QTextDocument>
 #include <QTreeWidget>
 #include <QVBoxLayout>
+
+namespace {
+
+constexpr int ROLE_HTML = Qt::UserRole + 1;     // rich text (formula with subscripts)
+
+/**
+ * @brief Draws rich text (subscripts) and uses white text on a dark selection
+ */
+class LibraryItemDelegate : public QStyledItemDelegate {
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+
+    void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
+        QStyleOptionViewItem opt(option);
+        this->initStyleOption(&opt, index);
+
+        const QString html = index.data(ROLE_HTML).toString();
+        const QString text = html.isEmpty() ? opt.text.toHtmlEscaped() : html;
+        const Qt::Alignment align = opt.displayAlignment;
+
+        // background, selection and focus from the style, the text ourselves
+        opt.text.clear();
+        const QWidget* w = opt.widget;
+        QStyle* style = w != nullptr ? w->style() : QApplication::style();
+        style->drawControl(QStyle::CE_ItemViewItem, &opt, painter, w);
+
+        QColor color = opt.palette.color(QPalette::Text);
+        if(opt.state & QStyle::State_Selected) {
+            const QPalette::ColorGroup group = (opt.state & QStyle::State_Active) ? QPalette::Active : QPalette::Inactive;
+            const QColor highlight = opt.palette.color(group, QPalette::Highlight);
+            if(highlight.lightnessF() < 0.6) {
+                color = Qt::white;
+            }
+        }
+
+        QTextDocument doc;
+        doc.setDocumentMargin(0);
+        doc.setDefaultFont(opt.font);
+        doc.setHtml(QString("<span style='color:%1'>%2</span>").arg(color.name(), text));
+
+        const QRect r = style->subElementRect(QStyle::SE_ItemViewItemText, &opt, w).adjusted(3, 0, -3, 0);
+        const QSizeF size = doc.size();
+        const double x = (align & Qt::AlignRight) ? r.right() - size.width() : r.left();
+        const double y = r.top() + (r.height() - size.height()) / 2.0;
+
+        painter->save();
+        painter->setClipRect(r);
+        painter->translate(x, y);
+        doc.drawContents(painter);
+        painter->restore();
+    }
+};
+
+} // namespace
 
 LibraryDialog::LibraryDialog(QWidget* parent) :
     QDialog(parent) {
@@ -53,6 +112,7 @@ LibraryDialog::LibraryDialog(QWidget* parent) :
     this->list->setRootIsDecorated(false);
     this->list->setAlternatingRowColors(true);
     this->list->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    this->list->setItemDelegate(new LibraryItemDelegate(this->list));
     layout->addWidget(this->list, 1);
 
     this->molecules = load_library();
@@ -60,6 +120,7 @@ LibraryDialog::LibraryDialog(QWidget* parent) :
         const Molecule& mol = this->molecules[i];
         auto* item = new QTreeWidgetItem({mol.get_name(), mol.formula(), QString::number(mol.size())});
         item->setData(0, Qt::UserRole, (int)i);
+        item->setData(1, ROLE_HTML, mol.formula_html());
         item->setTextAlignment(2, Qt::AlignRight | Qt::AlignVCenter);
         this->list->addTopLevelItem(item);
     }

@@ -96,6 +96,11 @@ public:
     QString formula() const;
 
     /**
+     * @brief Chemical formula as HTML with subscripts, e.g. "C<sub>6</sub>H<sub>6</sub>"
+     */
+    QString formula_html() const;
+
+    /**
      * @brief Geometric center (angstrom)
      */
     glm::dvec3 centroid() const;

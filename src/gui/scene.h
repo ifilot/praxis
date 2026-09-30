@@ -24,6 +24,7 @@
 #include <cmath>
 #include <QMatrix4x4>
 #include <stdexcept>
+#include <vector>
 
 /**
  * @brief      This class describes a camera alignment.
@@ -35,7 +36,9 @@ enum class CameraAlignment {
     LEFT,
     RIGHT,
     FRONT,
-    BACK
+    BACK,
+    FACE_ON,        // look perpendicular to the plane of the molecule
+    EDGE_ON         // look along the plane of the molecule
 };
 
 /**
@@ -72,6 +75,28 @@ public:
     LightingSettings object_lighting;
 
     Scene();
+
+    /**
+     * @brief Rotation matrix that shows the scene from a fixed direction
+     *
+     * The camera looks along +y with +z pointing up. FACE_ON and EDGE_ON
+     * depend on the geometry and require the positions of the atoms.
+     *
+     * @param alignment  direction
+     * @param positions  atom positions (only used for FACE_ON and EDGE_ON)
+     */
+    static QMatrix4x4 alignment_rotation(CameraAlignment alignment,
+                                         const std::vector<QVector3D>& positions = {});
+
+    /**
+     * @brief Rotation that aligns the principal axes of a set of points
+     *        with the screen
+     *
+     * The axis of largest spread becomes horizontal. For face_on, the axis
+     * of smallest spread points towards the viewer (e.g. the normal of a
+     * planar molecule), otherwise the axis of intermediate spread does.
+     */
+    static QMatrix4x4 principal_axes_rotation(const std::vector<QVector3D>& positions, bool face_on);
 
     /**
      * @brief Rotate scene around z-axis

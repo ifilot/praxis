@@ -59,6 +59,9 @@ private:
     // orbitals
     QWidget* tab_orbitals;
     QComboBox* combo_set;
+    QPushButton* button_gallery;
+    QPushButton* button_localize;
+    bool localization_available = false;
     QTableWidget* table_orbitals;
     QCheckBox* check_show;
     QRadioButton* radio_auto;
@@ -78,6 +81,7 @@ private:
     // populations
     QWidget* tab_populations;
     QTableWidget* table_populations;
+    QPushButton* button_bonding;
 
     // matrices
     QWidget* tab_matrices;
@@ -115,6 +119,16 @@ public:
      */
     void show_tab(const QString& name);
 
+    /**
+     * @brief Index of the orbital set shown in the orbitals tab
+     */
+    int current_set() const;
+
+    /**
+     * @brief Whether orbitals can be localized now (Python ready, no job running)
+     */
+    void set_localization_available(bool available);
+
 public slots:
     void on_orbital_shown(float isovalue, int nr_triangles);
 
@@ -126,6 +140,9 @@ signals:
     void grid_spacing_changed(float spacing);
     void opacity_changed(float opacity);
     void trajectory_frame_selected(int frame);
+    void gallery_requested();
+    void localization_requested();
+    void bonding_analysis_requested();
 
 private:
     QWidget* build_summary_tab();
@@ -144,8 +161,6 @@ private:
 
     void update_contributions();
     void emit_orbital_selection();
-    int current_set() const;
+    void update_localize_button();
     int current_orbital() const;
-
-    static QString orbital_label(const OrbitalSet& set, int index);
 };

@@ -58,6 +58,12 @@ struct OrbitalSet {
      * @brief Index of the highest occupied orbital (-1 if none)
      */
     int homo() const;
+
+    /**
+     * @brief "HOMO", "LUMO", "HOMO-1", "LUMO+2", ... for orbitals close to
+     *        the frontier, empty otherwise
+     */
+    QString frontier_label(int index) const;
 };
 
 struct OptimizationTrajectory {
@@ -148,6 +154,16 @@ public:
     inline bool is_unrestricted() const {
         return this->method == "uhf";
     }
+
+    /**
+     * @brief Matrix by key (e.g. "fock", "overlap"); nullptr when absent
+     */
+    const DenseMatrix* find_matrix(const QString& key) const;
+
+    /**
+     * @brief Index of the orbital set with this label (-1 when absent)
+     */
+    int find_orbital_set(const QString& label) const;
 
     /**
      * @brief Human readable description of an energy component key

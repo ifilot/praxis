@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.22)
 # IMPORTANT: must be set before project()
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
-project(pyqint-gui VERSION 0.1.0 LANGUAGES CXX)
+project(pyqint-gui VERSION 0.2.0 LANGUAGES CXX)
 
 # =========================
 # Version information

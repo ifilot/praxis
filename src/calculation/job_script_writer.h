@@ -37,6 +37,7 @@ class JobScriptWriter {
 public:
     static constexpr const char* RESULT_FILENAME = "result.json";
     static constexpr const char* SCRIPT_FILENAME = "job.py";
+    static constexpr const char* LOCALIZATION_SCRIPT_FILENAME = "localize.py";
     static constexpr const char* HELPER_FILENAME = "pyqint_gui_export.py";
     static constexpr const char* HELPER_RESOURCE = ":/assets/python/pyqint_gui_export.py";
 
@@ -53,10 +54,26 @@ public:
     static QString write_job_directory(const JobSpec& spec, const QString& directory);
 
     /**
+     * @brief Generate a script that adds Foster-Boys localized orbitals to an
+     *        existing result file, without repeating the Hartree-Fock calculation
+     *
+     * @param result_filename  name of the result file (in the same folder)
+     */
+    static QString generate_localization(const QString& result_filename, int seed, int runners);
+
+    /**
+     * @brief Write localize.py and the helper module next to a result file
+     *
+     * @return empty string on success, otherwise an error message
+     */
+    static QString write_localization_script(const QString& result_file, int seed, int runners);
+
+    /**
      * @brief Quote a string as a Python string literal
      */
     static QString python_string(const QString& str);
 
 private:
     static QString python_float(double v);
+    static QString write_helper(const QString& directory);
 };

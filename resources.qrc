@@ -26,20 +26,103 @@
         <file>assets/shaders/stereo_interlaced_rows_rl.fs</file>
         <file>assets/models/arrow.obj</file>
         <file>assets/icons/anaglyph_red_cyan_32.png</file>
-        <file>assets/icons/axes_32.png</file>
-        <file>assets/icons/close.png</file>
-        <file>assets/icons/info.png</file>
         <file>assets/icons/interlaced_checkerboard_lr_32.png</file>
         <file>assets/icons/interlaced_checkerboard_rl_32.png</file>
         <file>assets/icons/interlaced_columns_lr_32.png</file>
         <file>assets/icons/interlaced_columns_rl_32.png</file>
         <file>assets/icons/interlaced_rows_lr_32.png</file>
         <file>assets/icons/interlaced_rows_rl_32.png</file>
-        <file>assets/icons/open.png</file>
-        <file>assets/icons/periodic_table_32.png</file>
         <file>assets/icons/pyqint-gui.png</file>
-        <file>assets/icons/save.png</file>
-        <file>assets/icons/tools.png</file>
+        <file>assets/icons/bluecurve/16/accessories-calculator.png</file>
+        <file>assets/icons/bluecurve/16/accessories-dictionary.png</file>
+        <file>assets/icons/bluecurve/16/application-exit.png</file>
+        <file>assets/icons/bluecurve/16/camera-photo.png</file>
+        <file>assets/icons/bluecurve/16/display-capplet.png</file>
+        <file>assets/icons/bluecurve/16/document-open.png</file>
+        <file>assets/icons/bluecurve/16/document-save.png</file>
+        <file>assets/icons/bluecurve/16/edit-copy.png</file>
+        <file>assets/icons/bluecurve/16/fileexport.png</file>
+        <file>assets/icons/bluecurve/16/fileimport.png</file>
+        <file>assets/icons/bluecurve/16/folder.png</file>
+        <file>assets/icons/bluecurve/16/gnome-run.png</file>
+        <file>assets/icons/bluecurve/16/gnome-stock-insert-table.png</file>
+        <file>assets/icons/bluecurve/16/go-home.png</file>
+        <file>assets/icons/bluecurve/16/help-about.png</file>
+        <file>assets/icons/bluecurve/16/help-contents.png</file>
+        <file>assets/icons/bluecurve/16/icon-globe.png</file>
+        <file>assets/icons/bluecurve/16/image-x-generic.png</file>
+        <file>assets/icons/bluecurve/16/media-playback-start.png</file>
+        <file>assets/icons/bluecurve/16/preferences-system.png</file>
+        <file>assets/icons/bluecurve/16/reload.png</file>
+        <file>assets/icons/bluecurve/16/stop.png</file>
+        <file>assets/icons/bluecurve/16/zoom-best-fit.png</file>
+        <file>assets/icons/bluecurve/24/accessories-calculator.png</file>
+        <file>assets/icons/bluecurve/24/accessories-dictionary.png</file>
+        <file>assets/icons/bluecurve/24/application-exit.png</file>
+        <file>assets/icons/bluecurve/24/camera-photo.png</file>
+        <file>assets/icons/bluecurve/24/display-capplet.png</file>
+        <file>assets/icons/bluecurve/24/document-open.png</file>
+        <file>assets/icons/bluecurve/24/document-save.png</file>
+        <file>assets/icons/bluecurve/24/edit-copy.png</file>
+        <file>assets/icons/bluecurve/24/fileexport.png</file>
+        <file>assets/icons/bluecurve/24/fileimport.png</file>
+        <file>assets/icons/bluecurve/24/folder.png</file>
+        <file>assets/icons/bluecurve/24/gnome-run.png</file>
+        <file>assets/icons/bluecurve/24/gnome-stock-insert-table.png</file>
+        <file>assets/icons/bluecurve/24/go-home.png</file>
+        <file>assets/icons/bluecurve/24/help-about.png</file>
+        <file>assets/icons/bluecurve/24/help-contents.png</file>
+        <file>assets/icons/bluecurve/24/icon-globe.png</file>
+        <file>assets/icons/bluecurve/24/image-x-generic.png</file>
+        <file>assets/icons/bluecurve/24/media-playback-start.png</file>
+        <file>assets/icons/bluecurve/24/preferences-system.png</file>
+        <file>assets/icons/bluecurve/24/reload.png</file>
+        <file>assets/icons/bluecurve/24/stop.png</file>
+        <file>assets/icons/bluecurve/24/zoom-best-fit.png</file>
+        <file>assets/icons/bluecurve/32/accessories-calculator.png</file>
+        <file>assets/icons/bluecurve/32/accessories-dictionary.png</file>
+        <file>assets/icons/bluecurve/32/application-exit.png</file>
+        <file>assets/icons/bluecurve/32/camera-photo.png</file>
+        <file>assets/icons/bluecurve/32/display-capplet.png</file>
+        <file>assets/icons/bluecurve/32/document-open.png</file>
+        <file>assets/icons/bluecurve/32/document-save.png</file>
+        <file>assets/icons/bluecurve/32/edit-copy.png</file>
+        <file>assets/icons/bluecurve/32/fileexport.png</file>
+        <file>assets/icons/bluecurve/32/fileimport.png</file>
+        <file>assets/icons/bluecurve/32/gnome-run.png</file>
+        <file>assets/icons/bluecurve/32/gnome-stock-insert-table.png</file>
+        <file>assets/icons/bluecurve/32/go-home.png</file>
+        <file>assets/icons/bluecurve/32/help-about.png</file>
+        <file>assets/icons/bluecurve/32/help-contents.png</file>
+        <file>assets/icons/bluecurve/32/icon-globe.png</file>
+        <file>assets/icons/bluecurve/32/media-playback-start.png</file>
+        <file>assets/icons/bluecurve/32/preferences-system.png</file>
+        <file>assets/icons/bluecurve/32/reload.png</file>
+        <file>assets/icons/bluecurve/32/stop.png</file>
+        <file>assets/icons/bluecurve/32/zoom-best-fit.png</file>
+        <file>assets/icons/bluecurve/48/accessories-calculator.png</file>
+        <file>assets/icons/bluecurve/48/accessories-dictionary.png</file>
+        <file>assets/icons/bluecurve/48/application-exit.png</file>
+        <file>assets/icons/bluecurve/48/camera-photo.png</file>
+        <file>assets/icons/bluecurve/48/display-capplet.png</file>
+        <file>assets/icons/bluecurve/48/document-open.png</file>
+        <file>assets/icons/bluecurve/48/document-save.png</file>
+        <file>assets/icons/bluecurve/48/edit-copy.png</file>
+        <file>assets/icons/bluecurve/48/fileexport.png</file>
+        <file>assets/icons/bluecurve/48/fileimport.png</file>
+        <file>assets/icons/bluecurve/48/folder.png</file>
+        <file>assets/icons/bluecurve/48/gnome-run.png</file>
+        <file>assets/icons/bluecurve/48/gnome-stock-insert-table.png</file>
+        <file>assets/icons/bluecurve/48/go-home.png</file>
+        <file>assets/icons/bluecurve/48/help-about.png</file>
+        <file>assets/icons/bluecurve/48/help-contents.png</file>
+        <file>assets/icons/bluecurve/48/icon-globe.png</file>
+        <file>assets/icons/bluecurve/48/image-x-generic.png</file>
+        <file>assets/icons/bluecurve/48/media-playback-start.png</file>
+        <file>assets/icons/bluecurve/48/preferences-system.png</file>
+        <file>assets/icons/bluecurve/48/reload.png</file>
+        <file>assets/icons/bluecurve/48/stop.png</file>
+        <file>assets/icons/bluecurve/48/zoom-best-fit.png</file>
         <file>assets/icons/two_dimensional_32.png</file>
         <file>assets/molecules/acetylene.xyz</file>
         <file>assets/molecules/adenine.xyz</file>
