@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# Build PyQInt-GUI and create a macOS disk image (Apple Silicon)
+# Build Praxis and create a macOS disk image (Apple Silicon)
 #
 set -euo pipefail
 
-APP_NAME="PyQInt-GUI"
+APP_NAME="Praxis"
 BUILD_DIR="${BUILD_DIR:-build-macos}"
 DIST_DIR="${DIST_DIR:-dist/macos}"
 APP_BUNDLE="${BUILD_DIR}/${APP_NAME}.app"

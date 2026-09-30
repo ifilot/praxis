@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 #
-# Build PyQInt-GUI and create the Windows installer (run in an MSYS2 MinGW64 shell)
+# Build Praxis and create the Windows installer (run in an MSYS2 MinGW64 shell)
 #
 set -euo pipefail
 
 # ============================
 # Configuration
 # ============================
-APP_NAME="PyQInt-GUI"
-APP_EXE="pyqint-gui.exe"
+APP_NAME="Praxis"
+APP_EXE="praxis.exe"
 BUILD_DIR="build"
 DIST_ROOT="dist"
 DIST_DIR="${DIST_ROOT}/${APP_NAME}"

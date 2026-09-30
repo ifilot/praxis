@@ -1,6 +1,6 @@
 #pragma once
 
-#define PROGRAM_NAME "PyQInt-GUI"
+#define PROGRAM_NAME "Praxis"
 #define PROGRAM_VERSION "@PROJECT_VERSION@"
 #define GIT_HASH "@GIT_HASH@"
 

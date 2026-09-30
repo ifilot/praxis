@@ -1,10 +1,12 @@
-# PyQInt-GUI
+# Praxis
 
 Graphical user interface for two educational electronic-structure programs:
 [PyQInt](https://ifilot.github.io/pyqint/) (Hartree-Fock) and
 [PyDFT](https://ifilot.github.io/pydft/) (Kohn-Sham density functional
-theory). PyQInt-GUI lets students set up and run calculations without writing
+theory). Praxis lets students set up and run calculations without writing
 any Python, and visualizes molecules and molecular orbitals in 3D.
+
+Praxis was called PyQInt-GUI up to version 0.2.
 
 ![Main window: the HOMO of benzene](docs/img/main.png)
 
@@ -62,15 +64,15 @@ not converged when the last energy change exceeds the tolerance.
 ## How it works
 
 The installer contains only the program and a copy of
-[uv](https://github.com/astral-sh/uv). On first launch PyQInt-GUI uses uv to
+[uv](https://github.com/astral-sh/uv). On first launch Praxis uses uv to
 download a standalone Python interpreter and install the tested PyQInt and
 PyDFT versions in a private folder:
 
-| Platform | Location                                                   |
-|----------|------------------------------------------------------------|
-| Windows  | `%LOCALAPPDATA%\IMC\PyQInt-GUI\python`                     |
-| macOS    | `~/Library/Application Support/IMC/PyQInt-GUI/python`      |
-| Linux    | `~/.local/share/IMC/PyQInt-GUI/python`                     |
+| Platform | Location                                           |
+|----------|----------------------------------------------------|
+| Windows  | `%LOCALAPPDATA%\IMC\Praxis\python`                 |
+| macOS    | `~/Library/Application Support/IMC/Praxis/python`  |
+| Linux    | `~/.local/share/IMC/Praxis/python`                 |
 
 Any Python installation already on the computer is left untouched. The
 environment can be updated, reset or replaced by your own interpreter via
@@ -84,7 +86,7 @@ containing:
 * `job.py`: a stand-alone script that uses only the public PyQInt (or PyDFT)
   API; run it with `python job.py` to reproduce the calculation outside of
   the GUI
-* `pyqint_gui_export.py`: helper that writes the results and reports progress
+* `praxis_export.py`: helper that writes the results and reports progress
 * `result.json`: all results; open it again via **File → Open result**
 * `output.log`: the complete output of the calculation
 * `localize.py` and `localize.log`: only when the orbitals were localized
@@ -109,7 +111,7 @@ cmake --build build
 QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
 ```
 
-For a development build, either place a `uv` executable next to `pyqint-gui`
+For a development build, either place a `uv` executable next to `praxis`
 (`scripts/fetch-uv.sh x86_64-unknown-linux-gnu build`), have `uv` on your
 `PATH`, or point the program to a Python interpreter in which PyQInt (and,
 for DFT, PyDFT) is installed (**Python → Manage environment → Advanced**).
@@ -119,7 +121,7 @@ for DFT, PyDFT) is installed (**Python → Manage environment → Advanced**).
 Run `./package-windows.sh` in an MSYS2 MinGW64 shell (see
 `.github/workflows/ci.yml` for the required packages). This builds the
 program, runs the tests, bundles Qt and uv, and creates
-`PyQInt-GUI-Windows-Setup.exe`.
+`Praxis-Windows-Setup.exe`.
 
 ### macOS (Apple Silicon)
 
@@ -139,10 +141,10 @@ tests are opt-in:
 ```bash
 # run generated job and localization scripts with an existing PyQInt installation
 # (script_end_to_end_dft is skipped when PyDFT is not installed)
-PYQINT_GUI_TEST_PYTHON=/path/to/python ./build/test/pyqint_gui_test script_end_to_end localization_end_to_end script_end_to_end_dft
+PRAXIS_TEST_PYTHON=/path/to/python ./build/test/praxis_test script_end_to_end localization_end_to_end script_end_to_end_dft
 
 # install the managed environment with uv and run an HF and a DFT job (downloads ~300 MB)
-PYQINT_GUI_TEST_UV=/path/to/uv ./build/test/pyqint_gui_test environment_install_and_run
+PRAXIS_TEST_UV=/path/to/uv ./build/test/praxis_test environment_install_and_run
 ```
 
 ## Versions
@@ -157,9 +159,9 @@ Python version are set in `CMakeLists.txt` (`PYQINT_PINNED_VERSION`,
 The screenshots above are made with the program itself, e.g.
 
 ```bash
-./build/pyqint-gui benzene.json --results-tab orbitals --screenshot docs/img/main.png
-./build/pyqint-gui benzene.json --show gallery --screenshot docs/img/gallery.png
-./build/pyqint-gui ethylene.json --show bonding --screenshot docs/img/bonding.png
+./build/praxis benzene.json --results-tab orbitals --screenshot docs/img/main.png
+./build/praxis benzene.json --show gallery --screenshot docs/img/gallery.png
+./build/praxis ethylene.json --show bonding --screenshot docs/img/bonding.png
 ```
 
 where the `.json` files are results of RHF/STO-3G calculations.

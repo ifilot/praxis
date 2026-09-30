@@ -1,15 +1,15 @@
 /**************************************************************************
- *   This file is part of PYQINT-GUI.                                     *
+ *   This file is part of PRAXIS.                                         *
  *                                                                        *
  *   Author: Ivo Filot <ivo@ivofilot.nl>                                  *
  *                                                                        *
- *   PYQINT-GUI is free software:                                         *
+ *   PRAXIS is free software:                                             *
  *   you can redistribute it and/or modify it under the terms of the      *
  *   GNU General Public License as published by the Free Software         *
  *   Foundation, either version 3 of the License, or (at your option)     *
  *   any later version.                                                   *
  *                                                                        *
- *   PYQINT-GUI is distributed in the hope that it will be useful,        *
+ *   PRAXIS is distributed in the hope that it will be useful,            *
  *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
  *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
  *   See the GNU General Public License for more details.                 *
@@ -43,6 +43,7 @@
 #include "orbitals/marching_cubes.h"
 #include "orbitals/orbital_builder.h"
 #include "orbitals/scalar_field.h"
+#include "util/message_log.h"
 
 namespace {
 
@@ -282,7 +283,7 @@ private slots:
         spec.molecule = water();
         QVERIFY(JobScriptWriter::write_job_directory(spec, dir.path()).isEmpty());
         QVERIFY(QFileInfo::exists(dir.filePath("job.py")));
-        QVERIFY(QFileInfo::exists(dir.filePath("pyqint_gui_export.py")));
+        QVERIFY(QFileInfo::exists(dir.filePath("praxis_export.py")));
         QVERIFY(QFileInfo::exists(dir.filePath("molecule.xyz")));
     }
 
@@ -299,19 +300,19 @@ private slots:
         QVERIFY(QFile::copy(data_file("h2o_rhf_fb.json"), dir.filePath("result.json")));
         QVERIFY(JobScriptWriter::write_localization_script(dir.filePath("result.json"), 42, 1).isEmpty());
         QVERIFY(QFileInfo::exists(dir.filePath("localize.py")));
-        QVERIFY(QFileInfo::exists(dir.filePath("pyqint_gui_export.py")));
+        QVERIFY(QFileInfo::exists(dir.filePath("praxis_export.py")));
     }
 
     /**
      * @brief End-to-end test: run a generated script with a real PyQInt
      *
-     * Only executed when PYQINT_GUI_TEST_PYTHON points to a Python
+     * Only executed when PRAXIS_TEST_PYTHON points to a Python
      * interpreter with PyQInt installed.
      */
     void script_end_to_end() {
-        const QString python = qEnvironmentVariable("PYQINT_GUI_TEST_PYTHON");
+        const QString python = qEnvironmentVariable("PRAXIS_TEST_PYTHON");
         if(python.isEmpty()) {
-            QSKIP("PYQINT_GUI_TEST_PYTHON not set");
+            QSKIP("PRAXIS_TEST_PYTHON not set");
         }
 
         QTemporaryDir dir;
@@ -334,12 +335,12 @@ private slots:
     /**
      * @brief Localize the orbitals of an existing result with a real PyQInt
      *
-     * Only executed when PYQINT_GUI_TEST_PYTHON is set (see script_end_to_end).
+     * Only executed when PRAXIS_TEST_PYTHON is set (see script_end_to_end).
      */
     void localization_end_to_end() {
-        const QString python = qEnvironmentVariable("PYQINT_GUI_TEST_PYTHON");
+        const QString python = qEnvironmentVariable("PRAXIS_TEST_PYTHON");
         if(python.isEmpty()) {
-            QSKIP("PYQINT_GUI_TEST_PYTHON not set");
+            QSKIP("PRAXIS_TEST_PYTHON not set");
         }
 
         QTemporaryDir dir;
@@ -377,19 +378,19 @@ private slots:
      * @brief End-to-end test: run a generated DFT script with a real PyDFT,
      *        then localize the Kohn-Sham orbitals afterwards
      *
-     * Only executed when PYQINT_GUI_TEST_PYTHON is set (see script_end_to_end)
+     * Only executed when PRAXIS_TEST_PYTHON is set (see script_end_to_end)
      * and PyDFT is installed in that interpreter.
      */
     void script_end_to_end_dft() {
-        const QString python = qEnvironmentVariable("PYQINT_GUI_TEST_PYTHON");
+        const QString python = qEnvironmentVariable("PRAXIS_TEST_PYTHON");
         if(python.isEmpty()) {
-            QSKIP("PYQINT_GUI_TEST_PYTHON not set");
+            QSKIP("PRAXIS_TEST_PYTHON not set");
         }
         QProcess proc;
         proc.start(python, {"-c", "import pydft"});
         QVERIFY(proc.waitForFinished(60000));
         if(proc.exitCode() != 0) {
-            QSKIP("PyDFT is not installed in PYQINT_GUI_TEST_PYTHON");
+            QSKIP("PyDFT is not installed in PRAXIS_TEST_PYTHON");
         }
 
         QTemporaryDir dir;
@@ -429,12 +430,12 @@ private slots:
      *        run a job through JobRunner
      *
      * Downloads Python and PyQInt, hence only executed when
-     * PYQINT_GUI_TEST_UV points to a uv executable.
+     * PRAXIS_TEST_UV points to a uv executable.
      */
     void environment_install_and_run() {
-        const QString uv = qEnvironmentVariable("PYQINT_GUI_TEST_UV");
+        const QString uv = qEnvironmentVariable("PRAXIS_TEST_UV");
         if(uv.isEmpty()) {
-            QSKIP("PYQINT_GUI_TEST_UV not set");
+            QSKIP("PRAXIS_TEST_UV not set");
         }
 
         QStandardPaths::setTestModeEnabled(true);
@@ -813,6 +814,26 @@ private slots:
     void marching_cubes_empty() {
         ScalarField field(glm::vec3(0.0f), 0.1f, {10, 10, 10});
         QVERIFY(marching_cubes(field, 0.5f).empty());
+    }
+
+    void message_log_bounded() {
+        MessageLog log(3);
+        QSignalSpy spy(&log, &MessageLog::message_logged);
+        for(int i = 0; i < 5; ++i) {
+            log.record(QtDebugMsg, "default", QString("message %1").arg(i));
+        }
+        log.record(QtWarningMsg, "praxis.test", "something odd");
+        QCOMPARE(spy.count(), 6);
+
+        qint64 seq = 0;
+        const QStringList lines = log.entries(&seq);
+        QCOMPARE(seq, 6);
+        QCOMPARE(lines.size(), 3);                  // the oldest messages are dropped
+        QVERIFY(lines[0].endsWith("debug    message 3"));
+        QVERIFY(lines[2].endsWith("warning  [praxis.test] something odd"));
+
+        log.clear();
+        QVERIFY(log.entries().isEmpty());
     }
 };
 

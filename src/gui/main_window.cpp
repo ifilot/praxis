@@ -1,15 +1,15 @@
 /**************************************************************************
- *   This file is part of PYQINT-GUI.                                     *
+ *   This file is part of PRAXIS.                                         *
  *                                                                        *
  *   Author: Ivo Filot <ivo@ivofilot.nl>                                  *
  *                                                                        *
- *   PYQINT-GUI is free software:                                         *
+ *   PRAXIS is free software:                                             *
  *   you can redistribute it and/or modify it under the terms of the      *
  *   GNU General Public License as published by the Free Software         *
  *   Foundation, either version 3 of the License, or (at your option)     *
  *   any later version.                                                   *
  *                                                                        *
- *   PYQINT-GUI is distributed in the hope that it will be useful,        *
+ *   PRAXIS is distributed in the hope that it will be useful,            *
  *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
  *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
  *   See the GNU General Public License for more details.                 *
@@ -54,8 +54,10 @@
 #include "environment_dialog.h"
 #include "icons.h"
 #include "library_dialog.h"
+#include "message_log_window.h"
 #include "orbital_gallery_window.h"
 #include "results_panel.h"
+#include "util/message_log.h"
 #include "viewer_controller.h"
 
 namespace {
@@ -69,7 +71,7 @@ MainWindow::MainWindow(QWidget* parent) :
     QMainWindow(parent) {
 
     this->setWindowTitle(QString("%1 %2").arg(PROGRAM_NAME, PROGRAM_VERSION));
-    this->setWindowIcon(QIcon(":/assets/icons/pyqint-gui.png"));
+    this->setWindowIcon(QIcon(":/assets/icons/praxis.png"));
     this->setDockOptions(QMainWindow::AnimatedDocks | QMainWindow::AllowTabbedDocks);
 
     this->environment = new PythonEnvironment(this);
@@ -321,6 +323,8 @@ void MainWindow::build_menu() {
     QAction* action_github = menu_help->addAction(bluecurve_icon("icon-globe"), QString("%1 on &GitHub").arg(PROGRAM_NAME));
     connect(action_github, &QAction::triggered, this, []() { QDesktopServices::openUrl(QUrl(GITHUB_URL)); });
     menu_help->addSeparator();
+    QAction* action_log = menu_help->addAction("Message &log...");
+    connect(action_log, &QAction::triggered, this, &MainWindow::show_message_log);
     QAction* action_about = menu_help->addAction(bluecurve_icon("help-about"), "&About");
     connect(action_about, &QAction::triggered, this, &MainWindow::show_about);
 }
@@ -396,6 +400,10 @@ void MainWindow::update_analysis_actions() {
 }
 
 QWidget* MainWindow::show_tool_window(const QString& name) {
+    if(name == "log") {
+        this->show_message_log();
+        return this->message_log_window;
+    }
     if(!this->results_panel->get_result()) {
         return nullptr;
     }
@@ -498,7 +506,7 @@ void MainWindow::open_xyz() {
 
 void MainWindow::open_result() {
     const QString path = QFileDialog::getOpenFileName(this, "Open result", JobRunner::jobs_directory(),
-                                                      "PyQInt-GUI results (result.json *.json);;All files (*)");
+                                                      "Praxis results (result.json *.json);;All files (*)");
     if(!path.isEmpty()) {
         this->load_result(path, QFileInfo(path).absolutePath());
     }
@@ -708,6 +716,15 @@ void MainWindow::show_about() {
                 "<p><small>Build %4 &middot; tested with PyQInt %5 and PyDFT %9 &middot; Qt %6</small></p>")
             .arg(PROGRAM_NAME, PROGRAM_VERSION, MANUAL_URL, GIT_HASH, PYQINT_PINNED_VERSION, qVersion(), GITHUB_URL,
                  PYDFT_MANUAL_URL, PYDFT_PINNED_VERSION));
+}
+
+void MainWindow::show_message_log() {
+    if(this->message_log_window == nullptr) {
+        this->message_log_window = new MessageLogWindow(MessageLog::instance(), this);
+    }
+    this->message_log_window->show();
+    this->message_log_window->raise();
+    this->message_log_window->activateWindow();
 }
 
 void MainWindow::moveEvent(QMoveEvent* event) {

@@ -3,7 +3,7 @@
 These icons are an unmodified subset of Fedora's `bluecurve-icon-theme` 8.0.2
 source archive, in their native 16×16, 24×24, 32×32 and 48×48 sizes (the
 upstream theme has no 32×32 version of `folder` and `image-x-generic`). They
-are used for the menus, buttons and toolbars of PyQInt-GUI; the icons of the
+are used for the menus, buttons and toolbars of Praxis; the icons of the
 stereoscopic projection modes are not part of this set.
 
 - Fedora source package: <https://src.fedoraproject.org/rpms/bluecurve-icon-theme>

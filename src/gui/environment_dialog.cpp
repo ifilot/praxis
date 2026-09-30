@@ -1,15 +1,15 @@
 /**************************************************************************
- *   This file is part of PYQINT-GUI.                                     *
+ *   This file is part of PRAXIS.                                         *
  *                                                                        *
  *   Author: Ivo Filot <ivo@ivofilot.nl>                                  *
  *                                                                        *
- *   PYQINT-GUI is free software:                                         *
+ *   PRAXIS is free software:                                             *
  *   you can redistribute it and/or modify it under the terms of the      *
  *   GNU General Public License as published by the Free Software         *
  *   Foundation, either version 3 of the License, or (at your option)     *
  *   any later version.                                                   *
  *                                                                        *
- *   PYQINT-GUI is distributed in the hope that it will be useful,        *
+ *   PRAXIS is distributed in the hope that it will be useful,            *
  *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
  *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
  *   See the GNU General Public License for more details.                 *
@@ -252,7 +252,7 @@ void EnvironmentDialog::update_state() {
         this->label_step->setText(QString("<span style='color:#c62828'>The uv executable that installs Python and "
                                   "PyQInt/PyDFT was not found next to the program (%1) or on the PATH. The installers "
                                   "include it; for a build from source, re-run the build (CMake option "
-                                  "PYQINT_GUI_FETCH_UV) or run <tt>scripts/fetch-uv.sh</tt>. Alternatively, "
+                                  "PRAXIS_FETCH_UV) or run <tt>scripts/fetch-uv.sh</tt>. Alternatively, "
                                   "select your own Python interpreter with PyQInt below.</span>")
                                   .arg(QDir::toNativeSeparators(QCoreApplication::applicationDirPath()).toHtmlEscaped()));
     }

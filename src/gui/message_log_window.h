@@ -19,17 +19,30 @@
  *                                                                        *
  **************************************************************************/
 
-#include "icons.h"
+#pragma once
 
-#include <QFile>
+#include <QDialog>
 
-QIcon bluecurve_icon(const QString& name) {
-    QIcon icon;
-    for(int size : {16, 24, 32, 48}) {
-        const QString path = QString(":/assets/icons/bluecurve/%1/%2.png").arg(size).arg(name);
-        if(QFile::exists(path)) {
-            icon.addFile(path, QSize(size, size));
-        }
-    }
-    return icon;
-}
+class MessageLog;
+class QPlainTextEdit;
+
+/**
+ * @brief Shows the diagnostic messages collected by MessageLog, live
+ */
+class MessageLogWindow : public QDialog {
+    Q_OBJECT
+
+private:
+    MessageLog* log;
+    QPlainTextEdit* text;
+    qint64 last_seq = 0;
+
+public:
+    explicit MessageLogWindow(MessageLog* log, QWidget* parent = nullptr);
+
+private slots:
+    void on_message_logged(qint64 seq, const QString& line);
+    void copy_all();
+    void save();
+    void clear();
+};

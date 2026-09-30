@@ -1,15 +1,15 @@
 /**************************************************************************
- *   This file is part of PYQINT-GUI.                                     *
+ *   This file is part of PRAXIS.                                         *
  *                                                                        *
  *   Author: Ivo Filot <ivo@ivofilot.nl>                                  *
  *                                                                        *
- *   PYQINT-GUI is free software:                                         *
+ *   PRAXIS is free software:                                             *
  *   you can redistribute it and/or modify it under the terms of the      *
  *   GNU General Public License as published by the Free Software         *
  *   Foundation, either version 3 of the License, or (at your option)     *
  *   any later version.                                                   *
  *                                                                        *
- *   PYQINT-GUI is distributed in the hope that it will be useful,        *
+ *   PRAXIS is distributed in the hope that it will be useful,            *
  *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
  *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
  *   See the GNU General Public License for more details.                 *
@@ -32,7 +32,7 @@ class QTextStream;
  *
  * The script only uses the public PyQInt (Hartree-Fock) or PyDFT (density
  * functional theory) API plus the small helper module
- * pyqint_gui_export.py (copied next to the script) for writing the JSON
+ * praxis_export.py (copied next to the script) for writing the JSON
  * result file and reporting progress. Students can open the script to see
  * exactly which PyQInt calls were made.
  */
@@ -41,8 +41,8 @@ public:
     static constexpr const char* RESULT_FILENAME = "result.json";
     static constexpr const char* SCRIPT_FILENAME = "job.py";
     static constexpr const char* LOCALIZATION_SCRIPT_FILENAME = "localize.py";
-    static constexpr const char* HELPER_FILENAME = "pyqint_gui_export.py";
-    static constexpr const char* HELPER_RESOURCE = ":/assets/python/pyqint_gui_export.py";
+    static constexpr const char* HELPER_FILENAME = "praxis_export.py";
+    static constexpr const char* HELPER_RESOURCE = ":/assets/python/praxis_export.py";
 
     /**
      * @brief Generate the Python source of the job script

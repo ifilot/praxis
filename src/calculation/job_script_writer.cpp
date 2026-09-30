@@ -1,15 +1,15 @@
 /**************************************************************************
- *   This file is part of PYQINT-GUI.                                     *
+ *   This file is part of PRAXIS.                                         *
  *                                                                        *
  *   Author: Ivo Filot <ivo@ivofilot.nl>                                  *
  *                                                                        *
- *   PYQINT-GUI is free software:                                         *
+ *   PRAXIS is free software:                                             *
  *   you can redistribute it and/or modify it under the terms of the      *
  *   GNU General Public License as published by the Free Software         *
  *   Foundation, either version 3 of the License, or (at your option)     *
  *   any later version.                                                   *
  *                                                                        *
- *   PYQINT-GUI is distributed in the hope that it will be useful,        *
+ *   PRAXIS is distributed in the hope that it will be useful,            *
  *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
  *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
  *   See the GNU General Public License for more details.                 *
@@ -75,7 +75,7 @@ void JobScriptWriter::write_header(QTextStream& out, const JobSpec& spec, const 
         << "#\n"
         << "#     python job.py\n"
         << "#\n"
-        << "# The helper module pyqint_gui_export.py (next to this script) writes all\n"
+        << "# The helper module praxis_export.py (next to this script) writes all\n"
         << "# results to " << RESULT_FILENAME << ", which can be opened in " << PROGRAM_NAME << ".\n"
         << "#\n\n";
 }
@@ -122,7 +122,7 @@ QString JobScriptWriter::generate(const JobSpec& spec) {
 
     out << "import time\n\n"
         << "from pyqint import " << imports.join(", ") << "\n"
-        << "from pyqint_gui_export import export_result, progress\n\n";
+        << "from praxis_export import export_result, progress\n\n";
 
     // ------------------------------------------------------------------
     // job settings, echoed into the result file
@@ -218,7 +218,7 @@ QString JobScriptWriter::generate_dft(const JobSpec& spec) {
         << "import time\n\n"
         << "from pydft import DFT\n"
         << "from pyqint import " << imports.join(", ") << "\n"
-        << "from pyqint_gui_export import export_result, progress\n\n"
+        << "from praxis_export import export_result, progress\n\n"
         << "# PyDFT reports the SCF iterations through the logging module\n"
         << "logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(message)s')\n\n";
 
@@ -343,7 +343,7 @@ QString JobScriptWriter::generate_localization(const QString& result_filename, i
         << "#\n\n"
         << "import time\n\n"
         << "from pyqint import FosterBoys\n"
-        << "from pyqint_gui_export import load_result, add_localization, progress\n\n"
+        << "from praxis_export import load_result, add_localization, progress\n\n"
         << "start = time.time()\n\n"
         << "# --- SCF result, read from the result file ---\n"
         << "res = load_result(" << file << ")\n\n"

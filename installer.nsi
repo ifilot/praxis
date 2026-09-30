@@ -1,17 +1,17 @@
 ; ============================
-; PyQInt-GUI NSIS Installer
+; Praxis NSIS Installer
 ; ============================
 ;
 ; Installs the program for all users. The Python environment with PyQInt is
 ; *not* part of the installer: it is created per user on first launch (by the
-; bundled uv executable) in %LOCALAPPDATA%\IMC\PyQInt-GUI.
+; bundled uv executable) in %LOCALAPPDATA%\IMC\Praxis.
 
-!define APP_NAME "PyQInt-GUI"
+!define APP_NAME "Praxis"
 !ifndef APP_VERSION
   !define APP_VERSION "0.0.0"
 !endif
 !define APP_PUBLISHER "Ivo Filot"
-!define APP_EXE "pyqint-gui.exe"
+!define APP_EXE "praxis.exe"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
 !define USER_DATA_DIR "$LOCALAPPDATA\IMC\${APP_NAME}"
 
@@ -20,8 +20,8 @@ Name "${APP_NAME} ${APP_VERSION}"
 OutFile "${APP_NAME}-Windows-Setup.exe"
 InstallDir "$PROGRAMFILES64\${APP_NAME}"
 InstallDirRegKey HKLM "Software\${APP_NAME}" "InstallDir"
-Icon "assets\icons\pyqint-gui.ico"
-UninstallIcon "assets\icons\pyqint-gui.ico"
+Icon "assets\icons\praxis.ico"
+UninstallIcon "assets\icons\praxis.ico"
 
 RequestExecutionLevel admin
 
