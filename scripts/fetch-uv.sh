@@ -3,7 +3,7 @@
 # Download the pinned uv release for a platform, verify its checksum and
 # place the executable in a destination folder.
 #
-# uv (https://github.com/astral-sh/uv) is shipped with PyQInt-GUI and is used
+# uv (https://github.com/astral-sh/uv) is shipped with Praxis and is used
 # on first launch to install a private Python environment with PyQInt.
 #
 # usage: scripts/fetch-uv.sh <target> <destination-dir>

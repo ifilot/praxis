@@ -1,15 +1,15 @@
 /**************************************************************************
- *   This file is part of PYQINT-GUI.                                     *
+ *   This file is part of PRAXIS.                                         *
  *                                                                        *
  *   Author: Ivo Filot <ivo@ivofilot.nl>                                  *
  *                                                                        *
- *   PYQINT-GUI is free software:                                         *
+ *   PRAXIS is free software:                                             *
  *   you can redistribute it and/or modify it under the terms of the      *
  *   GNU General Public License as published by the Free Software         *
  *   Foundation, either version 3 of the License, or (at your option)     *
  *   any later version.                                                   *
  *                                                                        *
- *   PYQINT-GUI is distributed in the hope that it will be useful,        *
+ *   PRAXIS is distributed in the hope that it will be useful,            *
  *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
  *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
  *   See the GNU General Public License for more details.                 *
@@ -37,6 +37,13 @@
 #include "line_plot_widget.h"
 
 namespace {
+
+void set_row_visible(QFormLayout* form, QWidget* field, bool visible) {
+    field->setVisible(visible);
+    if(QWidget* label = form->labelForField(field)) {
+        label->setVisible(visible);
+    }
+}
 
 void set_item_enabled(QComboBox* combo, int index, bool enabled) {
     auto* model = qobject_cast<QStandardItemModel*>(combo->model());
@@ -79,12 +86,23 @@ CalculationPanel::CalculationPanel(QWidget* parent) :
     // ------------------------------------------------------------------
     auto* group_calc = new QGroupBox("Calculation");
     auto* form = new QFormLayout(group_calc);
+    this->form_calc = form;
+
+    this->combo_theory = new QComboBox;
+    this->combo_theory->addItem("Hartree-Fock (PyQInt)", (int)Theory::HartreeFock);
+    this->combo_theory->addItem("Density functional theory (PyDFT)", (int)Theory::DFT);
+    this->combo_theory->setToolTip("Hartree-Fock: electron exchange is treated exactly, correlation is neglected.\n"
+                                   "DFT: Kohn-Sham density functional theory, in which exchange and correlation\n"
+                                   "are approximated by a functional of the electron density (closed-shell\n"
+                                   "molecules with elements H-Ar, single points only).");
+    form->addRow("Theory:", this->combo_theory);
 
     this->combo_type = new QComboBox;
     this->combo_type->addItem("Single point", (int)JobType::SinglePoint);
     this->combo_type->addItem("Geometry optimization", (int)JobType::GeometryOptimization);
-    this->combo_type->setToolTip("Single point: solve the Hartree-Fock equations for the given geometry.\n"
-                                 "Geometry optimization: find the geometry with the lowest energy.");
+    this->combo_type->setToolTip("Single point: solve the SCF equations for the given geometry.\n"
+                                 "Geometry optimization: find the geometry with the lowest energy\n"
+                                 "(restricted Hartree-Fock only).");
     form->addRow("Type:", this->combo_type);
 
     this->combo_method = new QComboBox;
@@ -93,6 +111,15 @@ CalculationPanel::CalculationPanel(QWidget* parent) :
     this->combo_method->setToolTip("RHF: all electrons are paired (closed-shell molecules).\n"
                                    "UHF: separate orbitals for spin-up and spin-down electrons (open-shell).");
     form->addRow("Method:", this->combo_method);
+
+    this->combo_functional = new QComboBox;
+    for(const QString& f : JobSpec::available_functionals()) {
+        const QString kind = f == "pbe" ? "GGA" : "LDA";
+        this->combo_functional->addItem(QString("%1 (%2)").arg(JobSpec::functional_label(f), kind), f);
+    }
+    this->combo_functional->setToolTip("SVWN5 (LDA): Slater exchange with VWN5 correlation; depends only on the density.\n"
+                                       "PBE (GGA): also depends on the gradient of the density.");
+    form->addRow("Functional:", this->combo_functional);
 
     this->combo_basis = new QComboBox;
     for(const QString& b : JobSpec::available_basis_sets()) {
@@ -112,7 +139,7 @@ CalculationPanel::CalculationPanel(QWidget* parent) :
 
     this->check_fosterboys = new QCheckBox("Foster-Boys localization");
     this->check_fosterboys->setToolTip("Also construct localized molecular orbitals from the occupied\n"
-                                       "canonical orbitals (restricted Hartree-Fock only).");
+                                       "canonical orbitals (restricted Hartree-Fock and DFT only).");
     form->addRow(this->check_fosterboys);
     layout->addWidget(group_calc);
 
@@ -127,6 +154,7 @@ CalculationPanel::CalculationPanel(QWidget* parent) :
 
     this->group_advanced = new QGroupBox;
     auto* adv = new QFormLayout(this->group_advanced);
+    this->form_advanced = adv;
     this->spin_itermax = new QSpinBox;
     this->spin_itermax->setRange(5, 1000);
     this->spin_itermax->setValue(100);
@@ -156,6 +184,22 @@ CalculationPanel::CalculationPanel(QWidget* parent) :
     this->combo_gtol->setCurrentIndex(2);
     this->combo_gtol->setToolTip("Geometry optimization stops when the gradient is smaller than this (Ht/bohr)");
     adv->addRow("Gradient tolerance:", this->combo_gtol);
+
+    this->combo_grid = new QComboBox;
+    this->combo_grid->addItem("Default (H: 50, others: 110)", 0);
+    for(int n : JobSpec::available_angular_points()) {
+        this->combo_grid->addItem(QString("%1 per atom").arg(n), n);
+    }
+    this->combo_grid->setToolTip("Number of Lebedev points on each radial shell of the atomic integration grids.\n"
+                                 "More points integrate the exchange-correlation energy more accurately,\n"
+                                 "but take longer.");
+    adv->addRow("Angular grid points:", this->combo_grid);
+
+    this->label_dft_note = new QLabel("PyDFT always uses DIIS acceleration, canonical orthogonalization "
+                                      "and at most 100 SCF iterations.");
+    this->label_dft_note->setWordWrap(true);
+    this->label_dft_note->setStyleSheet("color: gray;");
+    adv->addRow(this->label_dft_note);
     this->group_advanced->setVisible(false);
     layout->addWidget(this->group_advanced);
 
@@ -210,12 +254,13 @@ CalculationPanel::CalculationPanel(QWidget* parent) :
     });
     connect(this->spin_multiplicity, &QSpinBox::valueChanged, this, [this](int mult) {
         // open-shell systems require UHF
-        if(mult > 1 && this->combo_method->currentData().toInt() == (int)HFMethod::Restricted) {
+        if(mult > 1 && !this->is_dft() && this->combo_method->currentData().toInt() == (int)HFMethod::Restricted) {
             this->combo_method->setCurrentIndex(this->combo_method->findData((int)HFMethod::Unrestricted));
         }
         this->update_state();
     });
-    for(auto* combo : {this->combo_type, this->combo_method, this->combo_basis}) {
+    for(auto* combo : {this->combo_theory, this->combo_type, this->combo_method, this->combo_functional,
+                       this->combo_basis, this->combo_grid}) {
         connect(combo, &QComboBox::currentIndexChanged, this, &CalculationPanel::update_state);
     }
     connect(this->check_fosterboys, &QCheckBox::toggled, this, &CalculationPanel::update_state);
@@ -228,7 +273,10 @@ JobSpec CalculationPanel::get_spec() const {
     JobSpec spec;
     spec.molecule = this->molecule;
     spec.type = (JobType)this->combo_type->currentData().toInt();
+    spec.theory = (Theory)this->combo_theory->currentData().toInt();
     spec.method = (HFMethod)this->combo_method->currentData().toInt();
+    spec.functional = this->combo_functional->currentData().toString();
+    spec.angular_points = this->combo_grid->currentData().toInt();
     spec.basis = this->combo_basis->currentData().toString();
     spec.charge = this->spin_charge->value();
     spec.multiplicity = this->spin_multiplicity->value();
@@ -264,7 +312,13 @@ void CalculationPanel::load_settings(const JobResult& result) {
     };
 
     // the result itself is authoritative; the echoed job settings fill in the rest
-    select(this->combo_method, (int)(result.is_unrestricted() ? HFMethod::Unrestricted : HFMethod::Restricted));
+    select(this->combo_theory, (int)(result.is_dft() ? Theory::DFT : Theory::HartreeFock));
+    if(result.is_dft()) {
+        select(this->combo_functional, result.functional);
+        select(this->combo_grid, job["angular_points"].toInt(0));
+    } else {
+        select(this->combo_method, (int)(result.is_unrestricted() ? HFMethod::Unrestricted : HFMethod::Restricted));
+    }
     select(this->combo_type, (int)(result.optimization ? JobType::GeometryOptimization : JobType::SinglePoint));
     if(job.contains("basis")) {
         select(this->combo_basis, job["basis"].toString());
@@ -307,20 +361,40 @@ void CalculationPanel::update_molecule_label() {
         .arg(this->molecule.size()).arg(ne));
 }
 
-void CalculationPanel::update_state() {
-    const bool restricted = this->combo_method->currentData().toInt() == (int)HFMethod::Restricted;
+bool CalculationPanel::is_dft() const {
+    return this->combo_theory->currentData().toInt() == (int)Theory::DFT;
+}
 
-    // options that only make sense for restricted Hartree-Fock
+void CalculationPanel::update_state() {
+    const bool dft = this->is_dft();
+    const bool restricted = dft || this->combo_method->currentData().toInt() == (int)HFMethod::Restricted;
+
+    // Hartree-Fock (PyQInt) and DFT (PyDFT) have different settings
+    set_row_visible(this->form_calc, this->combo_method, !dft);
+    set_row_visible(this->form_calc, this->combo_functional, dft);
+    set_row_visible(this->form_advanced, this->spin_itermax, !dft);
+    set_row_visible(this->form_advanced, this->combo_ortho, !dft);
+    set_row_visible(this->form_advanced, this->combo_gtol, !dft);
+    set_row_visible(this->form_advanced, this->combo_grid, dft);
+    this->check_diis->setVisible(!dft);
+    this->label_dft_note->setVisible(dft);
+
+    // options that only make sense for restricted Hartree-Fock (or DFT,
+    // which is always closed-shell); PyDFT cannot optimize geometries
     this->check_fosterboys->setEnabled(restricted && !this->running);
-    set_item_enabled(this->combo_type, 1, restricted);
-    if(!restricted && this->combo_type->currentIndex() == 1) {
+    set_item_enabled(this->combo_type, 1, restricted && !dft);
+    if((!restricted || dft) && this->combo_type->currentIndex() == 1) {
         this->combo_type->setCurrentIndex(0);
     }
 
     const bool geomopt = this->combo_type->currentData().toInt() == (int)JobType::GeometryOptimization;
     this->combo_gtol->setEnabled(geomopt);
 
-    const QString problem = this->get_spec().validate();
+    QString problem = this->get_spec().validate();
+    if(problem.isEmpty() && dft && this->environment_ready && !this->pydft_available) {
+        problem = "PyDFT is not installed in the Python environment; install it via "
+                  "Python → Manage environment → Use tested versions.";
+    }
     this->label_validation->setText(problem);
     this->label_validation->setVisible(!problem.isEmpty() && !this->molecule.empty());
 
@@ -334,8 +408,8 @@ void CalculationPanel::update_state() {
     this->button_cancel->setEnabled(this->running);
 
     for(QWidget* w : std::initializer_list<QWidget*>{
-            this->button_library, this->button_open, this->combo_type, this->combo_method,
-            this->combo_basis, this->spin_charge, this->spin_multiplicity, this->group_advanced}) {
+            this->button_library, this->button_open, this->combo_theory, this->combo_type, this->combo_method,
+            this->combo_functional, this->combo_basis, this->spin_charge, this->spin_multiplicity, this->group_advanced}) {
         w->setEnabled(!this->running);
     }
 }
@@ -350,8 +424,9 @@ void CalculationPanel::set_running(bool _running) {
     this->update_state();
 }
 
-void CalculationPanel::set_environment_ready(bool ready) {
+void CalculationPanel::set_environment_ready(bool ready, bool _pydft_available) {
     this->environment_ready = ready;
+    this->pydft_available = _pydft_available;
     this->update_state();
 }
 

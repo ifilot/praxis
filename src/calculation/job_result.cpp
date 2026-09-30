@@ -1,15 +1,15 @@
 /**************************************************************************
- *   This file is part of PYQINT-GUI.                                     *
+ *   This file is part of PRAXIS.                                         *
  *                                                                        *
  *   Author: Ivo Filot <ivo@ivofilot.nl>                                  *
  *                                                                        *
- *   PYQINT-GUI is free software:                                         *
+ *   PRAXIS is free software:                                             *
  *   you can redistribute it and/or modify it under the terms of the      *
  *   GNU General Public License as published by the Free Software         *
  *   Foundation, either version 3 of the License, or (at your option)     *
  *   any later version.                                                   *
  *                                                                        *
- *   PYQINT-GUI is distributed in the hope that it will be useful,        *
+ *   PRAXIS is distributed in the hope that it will be useful,            *
  *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
  *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
  *   See the GNU General Public License for more details.                 *
@@ -28,6 +28,7 @@
 #include <QJsonDocument>
 
 #include "data/units.h"
+#include "job_spec.h"
 
 namespace {
 
@@ -133,6 +134,7 @@ std::shared_ptr<JobResult> JobResult::parse(const QByteArray& data) {
     // generator
     const QJsonObject gen = root["generator"].toObject();
     res->pyqint_version = gen["pyqint_version"].toString();
+    res->pydft_version = gen["pydft_version"].toString();
     res->python_version = gen["python_version"].toString();
     res->created = gen["created"].toString();
     res->job = root["job"].toObject();
@@ -173,6 +175,8 @@ std::shared_ptr<JobResult> JobResult::parse(const QByteArray& data) {
     // SCF
     const QJsonObject scf = root["scf"].toObject();
     res->method = scf["method"].toString();
+    res->functional = scf["functional"].toString(res->job["functional"].toString());
+    res->converged = scf["converged"].toBool(true);
     res->nelec = scf["nelec"].toInt();
     res->multiplicity = scf["multiplicity"].toInt(1);
     res->nalpha = scf["nalpha"].toInt(res->nelec / 2);
@@ -180,7 +184,7 @@ std::shared_ptr<JobResult> JobResult::parse(const QByteArray& data) {
     res->scf_energies = to_vector(scf["iterations"]);
 
     static const char* component_order[] = {
-        "energy", "ekin", "enuc", "erep", "ex", "ecore", "ej", "ex_alpha", "ex_beta", "enucrep"
+        "energy", "ekin", "enuc", "erep", "ex", "ecore", "ej", "ex_alpha", "ex_beta", "ec", "enucrep"
     };
     const QJsonObject comps = scf["components"].toObject();
     for(const char* key : component_order) {
@@ -212,7 +216,7 @@ std::shared_ptr<JobResult> JobResult::parse(const QByteArray& data) {
 
     // matrices (keep a didactic order)
     static const char* matrix_order[] = {
-        "overlap", "kinetic", "nuclear", "hcore", "transform", "fock", "fock_alpha",
+        "overlap", "kinetic", "nuclear", "hcore", "transform", "hartree", "xc", "fock", "fock_alpha",
         "fock_beta", "density", "density_alpha", "density_beta"
     };
     const QJsonObject mats = root["matrices"].toObject();
@@ -264,6 +268,13 @@ std::shared_ptr<JobResult> JobResult::parse(const QByteArray& data) {
     }
 
     return res;
+}
+
+QString JobResult::method_label() const {
+    if(this->is_dft()) {
+        return QString("Kohn-Sham DFT (%1)").arg(JobSpec::functional_label(this->functional));
+    }
+    return this->is_unrestricted() ? "Unrestricted Hartree-Fock" : "Restricted Hartree-Fock";
 }
 
 double JobResult::total_energy() const {
@@ -320,9 +331,10 @@ QString JobResult::energy_component_label(const QString& key) {
     if(key == "erep") return "Electron-electron repulsion (Coulomb)";
     if(key == "ex") return "Exchange energy";
     if(key == "ecore") return "Core energy (kinetic + attraction)";
-    if(key == "ej") return "Coulomb energy";
+    if(key == "ej") return "Coulomb (Hartree) energy";
     if(key == "ex_alpha") return "Exchange energy (α)";
     if(key == "ex_beta") return "Exchange energy (β)";
+    if(key == "ec") return "Correlation energy";
     if(key == "enucrep") return "Nuclear repulsion";
     return key;
 }

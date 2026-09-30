@@ -1,15 +1,15 @@
 /**************************************************************************
- *   This file is part of PYQINT-GUI.                                     *
+ *   This file is part of PRAXIS.                                         *
  *                                                                        *
  *   Author: Ivo Filot <ivo@ivofilot.nl>                                  *
  *                                                                        *
- *   PYQINT-GUI is free software:                                         *
+ *   PRAXIS is free software:                                             *
  *   you can redistribute it and/or modify it under the terms of the      *
  *   GNU General Public License as published by the Free Software         *
  *   Foundation, either version 3 of the License, or (at your option)     *
  *   any later version.                                                   *
  *                                                                        *
- *   PYQINT-GUI is distributed in the hope that it will be useful,        *
+ *   PRAXIS is distributed in the hope that it will be useful,            *
  *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
  *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
  *   See the GNU General Public License for more details.                 *
@@ -29,6 +29,7 @@ class AnaglyphWidget;
 class CalculationPanel;
 class EnvironmentDialog;
 class JobRunner;
+class MessageLogWindow;
 class OrbitalGalleryWindow;
 class PythonEnvironment;
 class QAction;
@@ -57,6 +58,7 @@ private:
     QProgressBar* status_progress;
 
     EnvironmentDialog* environment_dialog = nullptr;
+    MessageLogWindow* message_log_window = nullptr;
     OrbitalGalleryWindow* gallery = nullptr;
     bool first_check_done = false;
 
@@ -82,7 +84,7 @@ public:
 
     /**
      * @brief Open the orbital gallery ("gallery") or the bonding analysis
-     *        ("bonding") for the current result
+     *        ("bonding") for the current result, or the message log ("log")
      *
      * @return the window, or nullptr when there is no result
      */
@@ -111,6 +113,7 @@ private slots:
     void save_image();
     void open_jobs_folder();
     void show_environment_dialog();
+    void show_message_log();
     void show_about();
 
     void show_gallery();

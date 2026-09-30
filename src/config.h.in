@@ -1,11 +1,14 @@
 #pragma once
 
-#define PROGRAM_NAME "PyQInt-GUI"
+#define PROGRAM_NAME "Praxis"
 #define PROGRAM_VERSION "@PROJECT_VERSION@"
 #define GIT_HASH "@GIT_HASH@"
 
 // PyQInt version installed into the managed Python environment
 #define PYQINT_PINNED_VERSION "@PYQINT_PINNED_VERSION@"
+
+// PyDFT version installed into the managed Python environment
+#define PYDFT_PINNED_VERSION "@PYDFT_PINNED_VERSION@"
 
 // Python version installed into the managed Python environment
 #define PYTHON_MANAGED_VERSION "@PYTHON_MANAGED_VERSION@"

@@ -1,15 +1,15 @@
 /**************************************************************************
- *   This file is part of PYQINT-GUI.                                     *
+ *   This file is part of PRAXIS.                                         *
  *                                                                        *
  *   Author: Ivo Filot <ivo@ivofilot.nl>                                  *
  *                                                                        *
- *   PYQINT-GUI is free software:                                         *
+ *   PRAXIS is free software:                                             *
  *   you can redistribute it and/or modify it under the terms of the      *
  *   GNU General Public License as published by the Free Software         *
  *   Foundation, either version 3 of the License, or (at your option)     *
  *   any later version.                                                   *
  *                                                                        *
- *   PYQINT-GUI is distributed in the hope that it will be useful,        *
+ *   PRAXIS is distributed in the hope that it will be useful,            *
  *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
  *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
  *   See the GNU General Public License for more details.                 *
@@ -26,8 +26,12 @@
 
 #include "config.h"
 #include "gui/main_window.h"
+#include "util/message_log.h"
 
 int main(int argc, char* argv[]) {
+    // diagnostic messages go to Help -> Message log instead of the terminal
+    MessageLog::install();
+
     QCoreApplication::setOrganizationName("IMC");
     QCoreApplication::setOrganizationDomain("tue.nl");
     QCoreApplication::setApplicationName(PROGRAM_NAME);
@@ -44,7 +48,7 @@ int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
 
     QCommandLineParser parser;
-    parser.setApplicationDescription("Graphical user interface for the PyQInt Hartree-Fock program");
+    parser.setApplicationDescription("Graphical user interface for the PyQInt (Hartree-Fock) and PyDFT (DFT) programs");
     parser.addHelpOption();
     parser.addVersionOption();
     parser.addPositionalArgument("file", "Molecule (.xyz) or result (.json) to open");
@@ -55,10 +59,14 @@ int main(int argc, char* argv[]) {
         "Tab of the results panel to show (summary, orbitals, diagram, charges, matrices, optimization).", "tab");
     parser.addOption(opt_tab);
     QCommandLineOption opt_show("show",
-        "Window to open for a result: gallery (orbital gallery) or bonding (bonding analysis). "
+        "Window to open: gallery (orbital gallery) or bonding (bonding analysis) of a result, or log (message log). "
         "With --screenshot, this window is captured instead of the main window.", "window");
     parser.addOption(opt_show);
+    QCommandLineOption opt_verbose("verbose",
+        "Also print debug messages to the terminal (they are always available via Help -> Message log).");
+    parser.addOption(opt_verbose);
     parser.process(app);
+    MessageLog::instance()->set_echo_all(parser.isSet(opt_verbose));
 
     MainWindow window;
     window.show();

@@ -1,15 +1,15 @@
 /**************************************************************************
- *   This file is part of PYQINT-GUI.                                     *
+ *   This file is part of PRAXIS.                                         *
  *                                                                        *
  *   Author: Ivo Filot <ivo@ivofilot.nl>                                  *
  *                                                                        *
- *   PYQINT-GUI is free software:                                         *
+ *   PRAXIS is free software:                                             *
  *   you can redistribute it and/or modify it under the terms of the      *
  *   GNU General Public License as published by the Free Software         *
  *   Foundation, either version 3 of the License, or (at your option)     *
  *   any later version.                                                   *
  *                                                                        *
- *   PYQINT-GUI is distributed in the hope that it will be useful,        *
+ *   PRAXIS is distributed in the hope that it will be useful,            *
  *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
  *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
  *   See the GNU General Public License for more details.                 *
@@ -412,13 +412,13 @@ void ResultsPanel::update_localize_button() {
         this->button_localize->setToolTip("Localization requires the Python environment and no running calculation.");
     } else {
         this->button_localize->setToolTip("Construct Foster-Boys localized orbitals from the occupied orbitals.\n"
-                                          "The Hartree-Fock calculation is not repeated.");
+                                          "The SCF calculation is not repeated.");
     }
 }
 
 void ResultsPanel::fill_summary() {
     const JobResult& r = *this->result;
-    const QString method = r.is_unrestricted() ? "Unrestricted Hartree-Fock" : "Restricted Hartree-Fock";
+    const QString method = r.method_label();
     const QString type = r.optimization ? "geometry optimization" : "single point";
     const QString basis = r.job.contains("basis") ? JobSpec::basis_set_label(r.job["basis"].toString()) : QString("unknown");
 
@@ -454,6 +454,10 @@ void ResultsPanel::fill_summary() {
             html += QString("; last energy change %1 Ht").arg(QString::number(de, 'e', 2));
         }
         html += "</p>";
+    }
+    if(!r.converged) {
+        html += "<p style='color:#c62828'><b>The SCF did not converge</b> within the maximum number of "
+                "iterations; the energy and orbitals are not reliable.</p>";
     }
 
     // frontier orbitals
@@ -502,8 +506,12 @@ void ResultsPanel::fill_summary() {
         html += "</table>";
     }
 
-    html += QString("<p style='color:gray'><small>PyQInt %1 &middot; Python %2 &middot; %3")
-        .arg(r.pyqint_version, r.python_version, r.created);
+    QString programs = QString("PyQInt %1").arg(r.pyqint_version);
+    if(!r.pydft_version.isEmpty()) {
+        programs += QString(" &middot; PyDFT %1").arg(r.pydft_version);
+    }
+    html += QString("<p style='color:gray'><small>%1 &middot; Python %2 &middot; %3")
+        .arg(programs, r.python_version, r.created);
     if(!this->job_dir.isEmpty()) {
         html += QString("<br><a href='%1'>Open job folder</a> (contains the Python script, the output and all results)")
             .arg(QUrl::fromLocalFile(this->job_dir).toString());
@@ -711,13 +719,16 @@ void ResultsPanel::fill_matrix() {
         }
     }
 
-    static const std::map<QString, QString> info = {
+    const std::map<QString, QString> info = {
         {"overlap", "Sᵢⱼ = ⟨φᵢ|φⱼ⟩: overlap between basis functions."},
         {"kinetic", "Tᵢⱼ: kinetic energy integrals."},
         {"nuclear", "Vᵢⱼ: attraction between electrons and all nuclei."},
         {"hcore", "H = T + V: one-electron (core) Hamiltonian."},
         {"transform", "X: transformation to an orthonormal basis (XᵀSX = I)."},
-        {"fock", "F = H + G(P): Fock matrix at convergence."},
+        {"hartree", "Jᵢⱼ: Coulomb (Hartree) repulsion with the electron density, integrated on the DFT grid."},
+        {"xc", "Vxcᵢⱼ: exchange-correlation potential of the functional, integrated on the DFT grid."},
+        {"fock", this->result->is_dft() ? "F = H + J + Vxc: Kohn-Sham matrix at convergence."
+                                        : "F = H + G(P): Fock matrix at convergence."},
         {"density", "P: density matrix; the diagonal of PS gives the Mulliken populations."},
     };
     auto it = info.find(this->result->matrices[m].first);

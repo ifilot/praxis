@@ -1,15 +1,15 @@
 /**************************************************************************
- *   This file is part of PYQINT-GUI.                                     *
+ *   This file is part of PRAXIS.                                         *
  *                                                                        *
  *   Author: Ivo Filot <ivo@ivofilot.nl>                                  *
  *                                                                        *
- *   PYQINT-GUI is free software:                                         *
+ *   PRAXIS is free software:                                             *
  *   you can redistribute it and/or modify it under the terms of the      *
  *   GNU General Public License as published by the Free Software         *
  *   Foundation, either version 3 of the License, or (at your option)     *
  *   any later version.                                                   *
  *                                                                        *
- *   PYQINT-GUI is distributed in the hope that it will be useful,        *
+ *   PRAXIS is distributed in the hope that it will be useful,            *
  *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
  *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
  *   See the GNU General Public License for more details.                 *
@@ -34,6 +34,8 @@
 namespace {
 
 constexpr const char* VERIFY_MARKER_PYQINT = "PYQINT_VERSION=";
+constexpr const char* VERIFY_MARKER_PYDFT = "PYDFT_VERSION=";
+constexpr const char* VERIFY_MARKER_PYDFT_ERROR = "PYDFT_ERROR=";
 constexpr const char* VERIFY_MARKER_PYTHON = "PYTHON_VERSION=";
 constexpr const char* VERIFY_DESCRIPTION = "Verifying installation";
 
@@ -122,7 +124,7 @@ QProcessEnvironment PythonEnvironment::process_environment() const {
     env.remove("VIRTUAL_ENV");
     env.remove("CONDA_PREFIX");
 
-    // matplotlib is imported by PyQInt; never try to open a window
+    // matplotlib may be imported by PyQInt; never try to open a window
     env.insert("MPLBACKEND", "Agg");
 
     return env;
@@ -161,19 +163,39 @@ void PythonEnvironment::set_state(State s) {
 }
 
 QStringList PythonEnvironment::verify_arguments() const {
+    // PyQInt is required; PyDFT is optional, hence imported inside a
+    // try-block (written with escape sequences to keep the command on one line)
     return {
         "-c",
         QString("import sys, numpy, scipy, pyqint; "
                 "print('%1' + pyqint.__version__); "
-                "print('%2' + sys.version.split()[0])")
-            .arg(VERIFY_MARKER_PYQINT, VERIFY_MARKER_PYTHON)
+                "exec('try:\\n import pydft\\n print(\\'%2\\' + pydft.__version__)\\n"
+                "except Exception as e:\\n print(\\'%3\\' + repr(e))'); "
+                "print('%4' + sys.version.split()[0])")
+            .arg(VERIFY_MARKER_PYQINT, VERIFY_MARKER_PYDFT, VERIFY_MARKER_PYDFT_ERROR, VERIFY_MARKER_PYTHON)
     };
+}
+
+QStringList PythonEnvironment::pinned_packages() {
+    return {QString("pyqint==%1").arg(PYQINT_PINNED_VERSION), QString("pydft==%1").arg(PYDFT_PINNED_VERSION)};
+}
+
+QString PythonEnvironment::programs_label() const {
+    QString result = QString("PyQInt %1").arg(this->pyqint_version);
+    if(!this->pydft_version.isEmpty()) {
+        result += QString(" · PyDFT %1").arg(this->pydft_version);
+    }
+    return result;
 }
 
 void PythonEnvironment::parse_verify_output(const QString& text) {
     for(const QString& line : text.split(QRegularExpression("[\r\n]+"), Qt::SkipEmptyParts)) {
         if(line.startsWith(VERIFY_MARKER_PYQINT)) {
             this->pyqint_version = line.mid(QString(VERIFY_MARKER_PYQINT).size()).trimmed();
+        } else if(line.startsWith(VERIFY_MARKER_PYDFT)) {
+            this->pydft_version = line.mid(QString(VERIFY_MARKER_PYDFT).size()).trimmed();
+        } else if(line.startsWith(VERIFY_MARKER_PYDFT_ERROR)) {
+            this->pydft_error = line.mid(QString(VERIFY_MARKER_PYDFT_ERROR).size()).trimmed();
         } else if(line.startsWith(VERIFY_MARKER_PYTHON)) {
             this->python_version = line.mid(QString(VERIFY_MARKER_PYTHON).size()).trimmed();
         }
@@ -186,6 +208,8 @@ void PythonEnvironment::check() {
     }
 
     this->pyqint_version.clear();
+    this->pydft_version.clear();
+    this->pydft_error.clear();
     this->python_version.clear();
 
     const QString python = this->python_executable();
@@ -215,7 +239,7 @@ void PythonEnvironment::install() {
 
     const QString uv = uv_executable();
     if(uv.isEmpty()) {
-        this->last_error = QString("The uv executable, used to install Python and PyQInt, was not found "
+        this->last_error = QString("The uv executable, used to install Python, PyQInt and PyDFT, was not found "
                                    "(looked in %1 and on the PATH).")
                                .arg(QDir::toNativeSeparators(QCoreApplication::applicationDirPath()));
         this->set_state(State::Missing);
@@ -232,14 +256,13 @@ void PythonEnvironment::install() {
         {"Creating virtual environment", uv,
          {"venv", "--python", PYTHON_MANAGED_VERSION, "--python-preference", "only-managed",
           "--allow-existing", env_directory()}},
-        {QString("Installing PyQInt %1").arg(PYQINT_PINNED_VERSION), uv,
-         {"pip", "install", "--python", this->python_executable(),
-          QString("pyqint==%1").arg(PYQINT_PINNED_VERSION)}},
+        {QString("Installing PyQInt %1 and PyDFT %2").arg(PYQINT_PINNED_VERSION, PYDFT_PINNED_VERSION), uv,
+         QStringList{"pip", "install", "--python", this->python_executable()} + pinned_packages()},
         {VERIFY_DESCRIPTION, this->python_executable(), this->verify_arguments()},
     });
 }
 
-void PythonEnvironment::update_pyqint(bool latest) {
+void PythonEnvironment::update_packages(bool latest) {
     if(this->is_busy()) {
         return;
     }
@@ -259,15 +282,15 @@ void PythonEnvironment::update_pyqint(bool latest) {
 
     QStringList args = {"pip", "install", "--python", this->python_executable()};
     if(latest) {
-        args << "--upgrade" << "pyqint";
+        args << "--upgrade" << "pyqint" << "pydft";
     } else {
-        args << QString("pyqint==%1").arg(PYQINT_PINNED_VERSION);
+        args << pinned_packages();
     }
 
     this->set_state(State::Installing);
     this->run_steps({
-        {latest ? QString("Upgrading PyQInt to the latest version") :
-                  QString("Installing PyQInt %1").arg(PYQINT_PINNED_VERSION), uv, args},
+        {latest ? QString("Upgrading PyQInt and PyDFT to the latest versions") :
+                  QString("Installing PyQInt %1 and PyDFT %2").arg(PYQINT_PINNED_VERSION, PYDFT_PINNED_VERSION), uv, args},
         {VERIFY_DESCRIPTION, this->python_executable(), this->verify_arguments()},
     });
 }
@@ -392,5 +415,9 @@ void PythonEnvironment::on_process_finished(int exit_code, QProcess::ExitStatus 
     this->steps.clear();
     this->last_error.clear();
     this->set_state(State::Ready);
-    emit finished(true, QString("PyQInt %1 is ready (Python %2).").arg(this->pyqint_version, this->python_version));
+    QString msg = QString("%1 ready (Python %2).").arg(this->programs_label(), this->python_version);
+    if(this->pydft_version.isEmpty()) {
+        msg += " PyDFT is not installed; DFT calculations are not available.";
+    }
+    emit finished(true, msg);
 }

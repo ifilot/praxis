@@ -3,14 +3,15 @@ cmake_minimum_required(VERSION 3.22)
 # IMPORTANT: must be set before project()
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
-project(pyqint-gui VERSION 0.2.0 LANGUAGES CXX)
+project(praxis VERSION 0.3.0 LANGUAGES CXX)
 
 # =========================
 # Version information
 # =========================
-# The PyQInt version that is installed into the managed Python environment.
-# Every release of the GUI is tested against exactly this version.
+# The PyQInt and PyDFT versions that are installed into the managed Python
+# environment. Every release of the GUI is tested against exactly these versions.
 set(PYQINT_PINNED_VERSION "1.4.3" CACHE STRING "PyQInt version installed into the managed environment")
+set(PYDFT_PINNED_VERSION "1.0.0" CACHE STRING "PyDFT version installed into the managed environment")
 set(PYTHON_MANAGED_VERSION "3.12" CACHE STRING "Python version installed into the managed environment")
 
 execute_process(
@@ -60,15 +61,15 @@ find_package(glm REQUIRED)
 file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS src/*.cpp)
 list(FILTER CORE_SOURCES EXCLUDE REGEX ".*/main\\.cpp$")
 
-add_library(pyqint_gui_core STATIC ${CORE_SOURCES})
+add_library(praxis_core STATIC ${CORE_SOURCES})
 
-target_include_directories(pyqint_gui_core
+target_include_directories(praxis_core
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_BINARY_DIR}
 )
 
-target_link_libraries(pyqint_gui_core
+target_link_libraries(praxis_core
     PUBLIC
         glm::glm
         Qt6::Core
@@ -92,29 +93,29 @@ if(WIN32)
 endif()
 
 if(APPLE)
-    set(APP_ICON_MACOS ${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/pyqint-gui.icns)
+    set(APP_ICON_MACOS ${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/praxis.icns)
     if(EXISTS ${APP_ICON_MACOS})
         set_source_files_properties(${APP_ICON_MACOS} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
         list(APPEND APP_SOURCES ${APP_ICON_MACOS})
     endif()
-    add_executable(pyqint-gui MACOSX_BUNDLE ${APP_SOURCES})
-    set_target_properties(pyqint-gui PROPERTIES
-        OUTPUT_NAME "PyQInt-GUI"
-        MACOSX_BUNDLE_BUNDLE_NAME "PyQInt-GUI"
-        MACOSX_BUNDLE_GUI_IDENTIFIER "nl.tue.pyqint-gui"
-        MACOSX_BUNDLE_ICON_FILE "pyqint-gui.icns"
+    add_executable(praxis MACOSX_BUNDLE ${APP_SOURCES})
+    set_target_properties(praxis PROPERTIES
+        OUTPUT_NAME "Praxis"
+        MACOSX_BUNDLE_BUNDLE_NAME "Praxis"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "nl.tue.praxis"
+        MACOSX_BUNDLE_ICON_FILE "praxis.icns"
         MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
     )
 else()
-    add_executable(pyqint-gui ${APP_SOURCES})
+    add_executable(praxis ${APP_SOURCES})
 endif()
 
 if(WIN32)
-    set_target_properties(pyqint-gui PROPERTIES WIN32_EXECUTABLE TRUE)
+    set_target_properties(praxis PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
 
-target_link_libraries(pyqint-gui PRIVATE pyqint_gui_core)
+target_link_libraries(praxis PRIVATE praxis_core)
 
 # =========================
 # Bundled uv
@@ -122,8 +123,8 @@ target_link_libraries(pyqint-gui PRIVATE pyqint_gui_core)
 # uv installs the private Python environment on first launch. The program
 # looks for it next to the executable, so fetch it into the build tree as
 # well; this makes development builds work without any extra steps.
-option(PYQINT_GUI_FETCH_UV "Download the pinned uv executable next to the program" ON)
-if(PYQINT_GUI_FETCH_UV)
+option(PRAXIS_FETCH_UV "Download the pinned uv executable next to the program" ON)
+if(PRAXIS_FETCH_UV)
     string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" UV_ARCH)
     if(UV_ARCH MATCHES "^(x86_64|amd64)$")
         set(UV_ARCH "x86_64")
@@ -143,7 +144,7 @@ if(PYQINT_GUI_FETCH_UV)
     endif()
 
     if(APPLE)
-        set(UV_DEST "${CMAKE_BINARY_DIR}/PyQInt-GUI.app/Contents/MacOS")
+        set(UV_DEST "${CMAKE_BINARY_DIR}/Praxis.app/Contents/MacOS")
     else()
         set(UV_DEST "${CMAKE_BINARY_DIR}")
     endif()
@@ -158,7 +159,7 @@ if(PYQINT_GUI_FETCH_UV)
             VERBATIM
         )
         add_custom_target(fetch_uv ALL DEPENDS "${UV_DEST}/${UV_BINARY}")
-        add_dependencies(fetch_uv pyqint-gui)
+        add_dependencies(fetch_uv praxis)
     else()
         message(WARNING "bash not found: uv is not fetched; place uv next to the executable or on the PATH")
     endif()
@@ -167,8 +168,8 @@ endif()
 # =========================
 # Tests
 # =========================
-option(PYQINT_GUI_BUILD_TESTS "Build unit tests" ON)
-if(PYQINT_GUI_BUILD_TESTS)
+option(PRAXIS_BUILD_TESTS "Build unit tests" ON)
+if(PRAXIS_BUILD_TESTS)
     find_package(Qt6 REQUIRED COMPONENTS Test)
     enable_testing()
     add_subdirectory(test)

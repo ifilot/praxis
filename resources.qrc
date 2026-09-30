@@ -32,7 +32,7 @@
         <file>assets/icons/interlaced_columns_rl_32.png</file>
         <file>assets/icons/interlaced_rows_lr_32.png</file>
         <file>assets/icons/interlaced_rows_rl_32.png</file>
-        <file>assets/icons/pyqint-gui.png</file>
+        <file>assets/icons/praxis.png</file>
         <file>assets/icons/bluecurve/16/accessories-calculator.png</file>
         <file>assets/icons/bluecurve/16/accessories-dictionary.png</file>
         <file>assets/icons/bluecurve/16/application-exit.png</file>
@@ -150,6 +150,6 @@
         <file>assets/molecules/o2.xyz</file>
         <file>assets/molecules/tetrahedrane.xyz</file>
         <file>assets/molecules/trans-1-3-butadiene.xyz</file>
-        <file>assets/python/pyqint_gui_export.py</file>
+        <file>assets/python/praxis_export.py</file>
     </qresource>
 </RCC>

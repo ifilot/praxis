@@ -1,15 +1,15 @@
 /**************************************************************************
- *   This file is part of PYQINT-GUI.                                     *
+ *   This file is part of PRAXIS.                                         *
  *                                                                        *
  *   Author: Ivo Filot <ivo@ivofilot.nl>                                  *
  *                                                                        *
- *   PYQINT-GUI is free software:                                         *
+ *   PRAXIS is free software:                                             *
  *   you can redistribute it and/or modify it under the terms of the      *
  *   GNU General Public License as published by the Free Software         *
  *   Foundation, either version 3 of the License, or (at your option)     *
  *   any later version.                                                   *
  *                                                                        *
- *   PYQINT-GUI is distributed in the hope that it will be useful,        *
+ *   PRAXIS is distributed in the hope that it will be useful,            *
  *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
  *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
  *   See the GNU General Public License for more details.                 *
@@ -450,9 +450,9 @@ void BondAnalysisDialog::update_summary() {
     switch(k) {
         case PopulationAnalysis::Kind::Hamilton:
             matrix = QString("F<sub>μν</sub>") + (spin_note.isEmpty() ? "" : QString("<sup>%1</sup>").arg(set.spin == "alpha" ? "α" : "β"));
-            meaning = "The Fock matrix element F<sub>μν</sub> is (mostly) negative between overlapping basis functions, "
+            meaning = QString("The %1 matrix element F<sub>μν</sub> is (mostly) negative between overlapping basis functions, "
                       "so a <b>negative</b> MOHP means that the orbital lowers the energy through the A–B interaction "
-                      "(bonding); a positive MOHP means antibonding.";
+                      "(bonding); a positive MOHP means antibonding.").arg(this->result->is_dft() ? "Kohn-Sham" : "Fock");
             break;
         case PopulationAnalysis::Kind::Overlap:
             matrix = "S<sub>μν</sub>";

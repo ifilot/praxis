@@ -1,15 +1,15 @@
 /**************************************************************************
- *   This file is part of PYQINT-GUI.                                     *
+ *   This file is part of PRAXIS.                                         *
  *                                                                        *
  *   Author: Ivo Filot <ivo@ivofilot.nl>                                  *
  *                                                                        *
- *   PYQINT-GUI is free software:                                         *
+ *   PRAXIS is free software:                                             *
  *   you can redistribute it and/or modify it under the terms of the      *
  *   GNU General Public License as published by the Free Software         *
  *   Foundation, either version 3 of the License, or (at your option)     *
  *   any later version.                                                   *
  *                                                                        *
- *   PYQINT-GUI is distributed in the hope that it will be useful,        *
+ *   PRAXIS is distributed in the hope that it will be useful,            *
  *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
  *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
  *   See the GNU General Public License for more details.                 *
@@ -88,6 +88,7 @@ class JobResult {
 public:
     int schema = 0;
     QString pyqint_version;
+    QString pydft_version;          // empty for Hartree-Fock results
     QString python_version;
     QString created;
     QJsonObject job;                // job settings as echoed by the script
@@ -103,7 +104,9 @@ public:
     std::shared_ptr<BasisSet> basis;
 
     // SCF
-    QString method;                 // "rhf" or "uhf"
+    QString method;                 // "rhf", "uhf" or "rks" (Kohn-Sham DFT)
+    QString functional;             // DFT only, e.g. "svwn5"
+    bool converged = true;          // false when the program reports no convergence
     int nelec = 0;
     int nalpha = 0;
     int nbeta = 0;
@@ -154,6 +157,15 @@ public:
     inline bool is_unrestricted() const {
         return this->method == "uhf";
     }
+
+    inline bool is_dft() const {
+        return this->method == "rks";
+    }
+
+    /**
+     * @brief Human readable level of theory, e.g. "Restricted Hartree-Fock"
+     */
+    QString method_label() const;
 
     /**
      * @brief Matrix by key (e.g. "fock", "overlap"); nullptr when absent

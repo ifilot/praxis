@@ -1,15 +1,15 @@
 /**************************************************************************
- *   This file is part of PYQINT-GUI.                                     *
+ *   This file is part of PRAXIS.                                         *
  *                                                                        *
  *   Author: Ivo Filot <ivo@ivofilot.nl>                                  *
  *                                                                        *
- *   PYQINT-GUI is free software:                                         *
+ *   PRAXIS is free software:                                             *
  *   you can redistribute it and/or modify it under the terms of the      *
  *   GNU General Public License as published by the Free Software         *
  *   Foundation, either version 3 of the License, or (at your option)     *
  *   any later version.                                                   *
  *                                                                        *
- *   PYQINT-GUI is distributed in the hope that it will be useful,        *
+ *   PRAXIS is distributed in the hope that it will be useful,            *
  *   but WITHOUT ANY WARRANTY; without even the implied warranty          *
  *   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.              *
  *   See the GNU General Public License for more details.                 *
@@ -108,9 +108,13 @@ Molecule Molecule::from_xyz_file(const QString& path) {
 int Molecule::nuclear_charge() const {
     int sum = 0;
     for(const auto& atom : this->atoms) {
-        sum += (int)AtomSettings::get().get_atom_elnr(atom.element.toStdString());
+        sum += atomic_number(atom.element);
     }
     return sum;
+}
+
+int Molecule::atomic_number(const QString& element) {
+    return (int)AtomSettings::get().get_atom_elnr(element.toStdString());
 }
 
 QString Molecule::formula() const {
