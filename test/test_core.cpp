@@ -171,6 +171,48 @@ private slots:
         QVERIFY(!spec.validate().isEmpty());
     }
 
+    void jobspec_validation_dft() {
+        JobSpec spec;
+        spec.molecule = water();
+        spec.theory = Theory::DFT;
+        QVERIFY(spec.validate().isEmpty());
+        QCOMPARE(spec.description(), QString("SVWN5/STO-3G single point"));
+
+        // Foster-Boys works on the (closed-shell) Kohn-Sham orbitals
+        spec.foster_boys = true;
+        QVERIFY(spec.validate().isEmpty());
+
+        // PyDFT ignores the charge and only does closed-shell single points
+        spec.charge = 2;
+        QVERIFY(spec.validate().contains("neutral"));
+        spec.charge = 0;
+        spec.multiplicity = 3;
+        QVERIFY(spec.validate().contains("closed-shell"));
+        spec.multiplicity = 1;
+        spec.type = JobType::GeometryOptimization;
+        QVERIFY(spec.validate().contains("geometry optimization"));
+        spec.type = JobType::SinglePoint;
+
+        // the method setting belongs to Hartree-Fock and is ignored
+        spec.method = HFMethod::Unrestricted;
+        QVERIFY(spec.validate().isEmpty());
+
+        spec.functional = "b3lyp";
+        QVERIFY(!spec.validate().isEmpty());
+        spec.functional = "pbe";
+        spec.angular_points = 77;
+        QVERIFY(!spec.validate().isEmpty());
+        spec.angular_points = 194;
+        QVERIFY(spec.validate().isEmpty());
+
+        // grids only exist for H-Ar
+        spec.molecule = Molecule::from_xyz_string("2\nKCl\nK 0 0 0\nCl 0 0 2.67\n", "kcl");
+        QVERIFY(spec.validate().contains("K"));
+        QVERIFY(!spec.validate().contains("Cl"));
+        spec.molecule = Molecule::from_xyz_string("2\nHCl\nH 0 0 0\nCl 0 0 1.27\n", "hcl");
+        QVERIFY(spec.validate().isEmpty());
+    }
+
     // ------------------------------------------------------------------
     // script generation
     // ------------------------------------------------------------------
@@ -203,6 +245,34 @@ private slots:
         src = JobScriptWriter::generate(spec);
         QVERIFY(src.contains("GeometryOptimization(mol, 'sto3g'"));
         QVERIFY(src.contains("geomopt=opt"));
+    }
+
+    void script_generation_dft() {
+        JobSpec spec;
+        spec.molecule = water();
+        spec.theory = Theory::DFT;
+        spec.functional = "pbe";
+        spec.foster_boys = true;
+        QString src = JobScriptWriter::generate(spec);
+        QVERIFY(src.contains("from pydft import DFT"));
+        QVERIFY(src.contains("from pyqint import Molecule, FosterBoys"));
+        QVERIFY(src.contains("'program': 'pydft'"));
+        QVERIFY(src.contains("'functional': 'pbe'"));
+        QVERIFY(src.contains("functional=JOB['functional']"));
+        QVERIFY(src.contains("res = dft.scf(tol=JOB['tolerance'], verbose=True)"));
+        QVERIFY(src.contains("logging.basicConfig(stream=sys.stdout"));
+        QVERIFY(src.contains("FosterBoys(res"));
+        QVERIFY(!src.contains("nangpts"));
+        QVERIFY(!src.contains(".rhf("));
+        QVERIFY(!src.contains("HF("));
+        QCOMPARE(src.count("mol.add_atom("), 3);
+
+        spec.angular_points = 194;
+        spec.foster_boys = false;
+        src = JobScriptWriter::generate(spec);
+        QVERIFY(src.contains("'angular_points': 194"));
+        QVERIFY(src.contains("nangpts=JOB['angular_points']"));
+        QVERIFY(!src.contains("FosterBoys"));
     }
 
     void script_write_directory() {
@@ -304,6 +374,57 @@ private slots:
     }
 
     /**
+     * @brief End-to-end test: run a generated DFT script with a real PyDFT,
+     *        then localize the Kohn-Sham orbitals afterwards
+     *
+     * Only executed when PYQINT_GUI_TEST_PYTHON is set (see script_end_to_end)
+     * and PyDFT is installed in that interpreter.
+     */
+    void script_end_to_end_dft() {
+        const QString python = qEnvironmentVariable("PYQINT_GUI_TEST_PYTHON");
+        if(python.isEmpty()) {
+            QSKIP("PYQINT_GUI_TEST_PYTHON not set");
+        }
+        QProcess proc;
+        proc.start(python, {"-c", "import pydft"});
+        QVERIFY(proc.waitForFinished(60000));
+        if(proc.exitCode() != 0) {
+            QSKIP("PyDFT is not installed in PYQINT_GUI_TEST_PYTHON");
+        }
+
+        QTemporaryDir dir;
+        JobSpec spec;
+        spec.molecule = water();
+        spec.theory = Theory::DFT;
+        spec.functional = "svwn5";
+        QVERIFY(JobScriptWriter::write_job_directory(spec, dir.path()).isEmpty());
+
+        proc.setWorkingDirectory(dir.path());
+        proc.start(python, {"-u", "job.py"});
+        QVERIFY(proc.waitForFinished(300000));
+        QVERIFY2(proc.exitCode() == 0, proc.readAllStandardError().constData());
+        QVERIFY(QString::fromUtf8(proc.readAllStandardOutput()).contains(" | E = "));
+
+        auto res = JobResult::load(dir.filePath("result.json"));
+        QVERIFY(res->is_dft());
+        QCOMPARE(res->functional, QString("svwn5"));
+        QVERIFY(res->converged);
+        QVERIFY(!res->pydft_version.isEmpty());
+        QVERIFY(std::abs(res->total_energy() - (-74.9258131094)) < 1e-6);
+        QCOMPARE(res->orbital_sets.size(), (size_t)1);
+
+        QVERIFY(JobScriptWriter::write_localization_script(dir.filePath("result.json"), 42, 1).isEmpty());
+        proc.start(python, {"-u", "localize.py"});
+        QVERIFY(proc.waitForFinished(120000));
+        QVERIFY2(proc.exitCode() == 0, proc.readAllStandardError().constData());
+
+        auto after = JobResult::load(dir.filePath("result.json"));
+        QCOMPARE(after->orbital_sets.size(), (size_t)2);
+        QVERIFY(after->localization.present);
+        QVERIFY(after->is_dft());
+    }
+
+    /**
      * @brief Full workflow: bootstrap the managed environment with uv and
      *        run a job through JobRunner
      *
@@ -335,6 +456,8 @@ private slots:
         QVERIFY2(install_spy.front().at(0).toBool(), qPrintable(install_spy.front().at(1).toString()));
         QCOMPARE(env.get_state(), PythonEnvironment::State::Ready);
         QCOMPARE(env.get_pyqint_version(), QString(PYQINT_PINNED_VERSION));
+        QCOMPARE(env.get_pydft_version(), QString(PYDFT_PINNED_VERSION));
+        QVERIFY(env.has_pydft());
         QVERIFY(env.get_python_version().startsWith(PYTHON_MANAGED_VERSION));
 
         // the virtual environment must be based on the standalone Python
@@ -367,6 +490,18 @@ private slots:
         QCOMPARE(res->nalpha, 5);
         QCOMPARE(res->nbeta, 4);
         QVERIFY(QFileInfo::exists(QDir(runner.get_job_directory()).filePath("output.log")));
+
+        // and a DFT job; its SCF iterations are reported as well
+        JobSpec dft;
+        dft.molecule = water();
+        dft.theory = Theory::DFT;
+        QSignalSpy dft_iter_spy(&runner, &JobRunner::scf_iteration);
+        QSignalSpy dft_spy(&runner, &JobRunner::finished);
+        QVERIFY(runner.start(dft).isEmpty());
+        QVERIFY(dft_spy.wait(300000));
+        QVERIFY2(dft_spy.front().at(0).toBool(), qPrintable(dft_spy.front().at(1).toString()));
+        QVERIFY(dft_iter_spy.size() > 3);
+        QVERIFY(JobResult::load(dft_spy.front().at(2).toString())->is_dft());
 
         QDir(PythonEnvironment::root_directory()).removeRecursively();
         QDir(JobRunner::jobs_directory()).removeRecursively();
@@ -426,6 +561,44 @@ private slots:
         QCOMPARE(res->optimization->frames.size(), res->optimization->energies.size());
         // optimization lowers the energy
         QVERIFY(res->optimization->energies.back() < res->optimization->energies.front());
+    }
+
+    void result_dft() {
+        auto res = JobResult::load(data_file("h2o_svwn5.json"));
+        QVERIFY(res->is_dft());
+        QVERIFY(!res->is_unrestricted());
+        QCOMPARE(res->method, QString("rks"));
+        QCOMPARE(res->functional, QString("svwn5"));
+        QCOMPARE(res->method_label(), QString("Kohn-Sham DFT (SVWN5)"));
+        QVERIFY(res->converged);
+        QVERIFY(!res->pydft_version.isEmpty());
+        QCOMPARE(res->nelec, 10);
+        QCOMPARE(res->orbital_sets.size(), (size_t)2);
+        QCOMPARE(res->orbital_sets[0].homo(), 4);
+        QCOMPARE(res->orbital_sets[1].label, QString("Foster-Boys"));
+
+        // the energy terms add up to the total energy
+        double sum = 0.0;
+        bool has_ec = false;
+        for(const auto& comp : res->energy_components) {
+            if(comp.first != "energy") {
+                sum += comp.second;
+            }
+            has_ec |= comp.first == "ec";
+        }
+        QVERIFY(has_ec);
+        QVERIFY(std::abs(sum - res->total_energy()) < 1e-8);
+
+        QVERIFY(res->find_matrix("hartree") != nullptr);
+        QVERIFY(res->find_matrix("xc") != nullptr);
+        QCOMPARE(res->find_matrix("fock")->label, QString("F (Kohn-Sham)"));
+
+        // grid-based timings are flattened to scalars
+        QVERIFY(!res->timing.empty());
+
+        // the bonding analysis works with the Kohn-Sham matrix
+        using namespace PopulationAnalysis;
+        QVERIFY(evaluate(*res, 0, 0, 1, Kind::Hamilton).occupied_sum < 0.0);
     }
 
     void result_errors() {

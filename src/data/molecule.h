@@ -91,6 +91,11 @@ public:
     int nuclear_charge() const;
 
     /**
+     * @brief Atomic number of an element symbol
+     */
+    static int atomic_number(const QString& element);
+
+    /**
      * @brief Hill-ordered chemical formula (e.g. "CH4", "H2O")
      */
     QString formula() const;

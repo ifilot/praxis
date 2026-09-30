@@ -23,12 +23,15 @@
 
 #include <QString>
 
+class QTextStream;
+
 #include "job_spec.h"
 
 /**
  * @brief Generates a stand-alone Python script for a job
  *
- * The script only uses the public PyQInt API plus the small helper module
+ * The script only uses the public PyQInt (Hartree-Fock) or PyDFT (density
+ * functional theory) API plus the small helper module
  * pyqint_gui_export.py (copied next to the script) for writing the JSON
  * result file and reporting progress. Students can open the script to see
  * exactly which PyQInt calls were made.
@@ -55,7 +58,7 @@ public:
 
     /**
      * @brief Generate a script that adds Foster-Boys localized orbitals to an
-     *        existing result file, without repeating the Hartree-Fock calculation
+     *        existing result file, without repeating the SCF calculation
      *
      * @param result_filename  name of the result file (in the same folder)
      */
@@ -74,6 +77,9 @@ public:
     static QString python_string(const QString& str);
 
 private:
+    static QString generate_dft(const JobSpec& spec);
+    static void write_header(QTextStream& out, const JobSpec& spec, const QString& program);
+    static void write_molecule(QTextStream& out, const JobSpec& spec);
     static QString python_float(double v);
     static QString write_helper(const QString& directory);
 };

@@ -8,9 +8,10 @@ project(pyqint-gui VERSION 0.2.0 LANGUAGES CXX)
 # =========================
 # Version information
 # =========================
-# The PyQInt version that is installed into the managed Python environment.
-# Every release of the GUI is tested against exactly this version.
+# The PyQInt and PyDFT versions that are installed into the managed Python
+# environment. Every release of the GUI is tested against exactly these versions.
 set(PYQINT_PINNED_VERSION "1.4.3" CACHE STRING "PyQInt version installed into the managed environment")
+set(PYDFT_PINNED_VERSION "1.0.0" CACHE STRING "PyDFT version installed into the managed environment")
 set(PYTHON_MANAGED_VERSION "3.12" CACHE STRING "Python version installed into the managed environment")
 
 execute_process(

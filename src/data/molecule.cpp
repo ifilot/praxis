@@ -108,9 +108,13 @@ Molecule Molecule::from_xyz_file(const QString& path) {
 int Molecule::nuclear_charge() const {
     int sum = 0;
     for(const auto& atom : this->atoms) {
-        sum += (int)AtomSettings::get().get_atom_elnr(atom.element.toStdString());
+        sum += atomic_number(atom.element);
     }
     return sum;
+}
+
+int Molecule::atomic_number(const QString& element) {
+    return (int)AtomSettings::get().get_atom_elnr(element.toStdString());
 }
 
 QString Molecule::formula() const {

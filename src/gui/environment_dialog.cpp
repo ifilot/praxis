@@ -51,10 +51,11 @@ EnvironmentDialog::EnvironmentDialog(PythonEnvironment* _environment, QWidget* p
     auto* layout = new QVBoxLayout(this);
 
     auto* intro = new QLabel(
-        "<p>" PROGRAM_NAME " runs its calculations with <b>PyQInt</b> in a private Python "
-        "environment. This environment is downloaded and installed automatically; it does "
-        "not touch any Python installation you may already have.</p>"
-        "<p>Installation requires an internet connection and roughly 200&nbsp;MB of disk space.</p>");
+        "<p>" PROGRAM_NAME " runs its calculations with <b>PyQInt</b> (Hartree-Fock) and "
+        "<b>PyDFT</b> (density functional theory) in a private Python environment. This "
+        "environment is downloaded and installed automatically; it does not touch any Python "
+        "installation you may already have.</p>"
+        "<p>Installation requires an internet connection and roughly 300&nbsp;MB of disk space.</p>");
     intro->setWordWrap(true);
     layout->addWidget(intro);
 
@@ -63,12 +64,15 @@ EnvironmentDialog::EnvironmentDialog(PythonEnvironment* _environment, QWidget* p
     auto* form = new QFormLayout(status_box);
     this->label_state = new QLabel;
     this->label_pyqint = new QLabel;
+    this->label_pydft = new QLabel;
+    this->label_pydft->setWordWrap(true);
     this->label_python = new QLabel;
     this->label_location = new QLabel;
     this->label_location->setTextInteractionFlags(Qt::TextSelectableByMouse);
     this->label_location->setWordWrap(true);
     form->addRow("State:", this->label_state);
     form->addRow("PyQInt:", this->label_pyqint);
+    form->addRow("PyDFT:", this->label_pydft);
     form->addRow("Python:", this->label_python);
     form->addRow("Location:", this->label_location);
     layout->addWidget(status_box);
@@ -76,11 +80,13 @@ EnvironmentDialog::EnvironmentDialog(PythonEnvironment* _environment, QWidget* p
     // actions
     auto* actions = new QHBoxLayout;
     this->button_install = new QPushButton(bluecurve_icon("fileimport"), "Install");
-    this->button_install->setToolTip("Download Python and install the tested PyQInt version");
-    this->button_pinned = new QPushButton(QString("Use tested PyQInt (%1)").arg(PYQINT_PINNED_VERSION));
-    this->button_pinned->setToolTip("(Re)install the PyQInt version this program was tested with");
-    this->button_update = new QPushButton(bluecurve_icon("reload"), "Update to latest PyQInt");
-    this->button_update->setToolTip("Upgrade to the newest PyQInt release on PyPI (not tested with this version of the GUI)");
+    this->button_install->setToolTip("Download Python and install the tested PyQInt and PyDFT versions");
+    this->button_pinned = new QPushButton("Use tested versions");
+    this->button_pinned->setToolTip(QString("(Re)install the versions this program was tested with "
+                                            "(PyQInt %1, PyDFT %2)").arg(PYQINT_PINNED_VERSION, PYDFT_PINNED_VERSION));
+    this->button_update = new QPushButton(bluecurve_icon("reload"), "Update to latest");
+    this->button_update->setToolTip("Upgrade to the newest PyQInt and PyDFT releases on PyPI "
+                                    "(not tested with this version of the GUI)");
     this->button_reset = new QPushButton("Reset environment");
     this->button_reset->setToolTip("Delete the environment completely and install it again");
     actions->addWidget(this->button_install);
@@ -117,7 +123,8 @@ EnvironmentDialog::EnvironmentDialog(PythonEnvironment* _environment, QWidget* p
     advl->addWidget(this->edit_override, 1);
     advl->addWidget(this->button_override_browse);
     advl->addWidget(this->button_override_clear);
-    adv->setToolTip("For developers: run calculations with an existing interpreter in which PyQInt is installed.");
+    adv->setToolTip("For developers: run calculations with an existing interpreter in which PyQInt "
+                    "(and optionally PyDFT) is installed.");
     layout->addWidget(adv);
 
     auto* buttons = new QHBoxLayout;
@@ -131,16 +138,17 @@ EnvironmentDialog::EnvironmentDialog(PythonEnvironment* _environment, QWidget* p
     connect(this->button_install, &QPushButton::clicked, this, &EnvironmentDialog::start_install);
     connect(this->button_pinned, &QPushButton::clicked, this, [this]() {
         this->log->clear();
-        this->environment->update_pyqint(false);
+        this->environment->update_packages(false);
     });
     connect(this->button_update, &QPushButton::clicked, this, [this]() {
-        auto answer = QMessageBox::question(this, "Update PyQInt",
-            QString("This installs the newest PyQInt release, which has not been tested with this "
-                    "version of %1. You can always return to the tested version (%2).\n\nContinue?")
-                .arg(PROGRAM_NAME, PYQINT_PINNED_VERSION));
+        auto answer = QMessageBox::question(this, "Update PyQInt and PyDFT",
+            QString("This installs the newest PyQInt and PyDFT releases, which have not been tested with "
+                    "this version of %1. You can always return to the tested versions (PyQInt %2, "
+                    "PyDFT %3).\n\nContinue?")
+                .arg(PROGRAM_NAME, PYQINT_PINNED_VERSION, PYDFT_PINNED_VERSION));
         if(answer == QMessageBox::Yes) {
             this->log->clear();
-            this->environment->update_pyqint(true);
+            this->environment->update_packages(true);
         }
     });
     connect(this->button_reset, &QPushButton::clicked, this, [this]() {
@@ -208,6 +216,22 @@ void EnvironmentDialog::update_state() {
         pyqint += " (tested version)";
     }
     this->label_pyqint->setText(pyqint);
+
+    QString pydft = this->environment->get_pydft_version();
+    if(state != State::Ready) {
+        pydft = "-";
+    } else if(pydft.isEmpty()) {
+        pydft = "<span style='color:#c62828'>not installed: DFT calculations are unavailable";
+        if(!this->environment->get_pydft_error().isEmpty()) {
+            pydft += QString(" (%1)").arg(this->environment->get_pydft_error().toHtmlEscaped());
+        }
+        pydft += override ? "</span>" : ". Click <i>Use tested versions</i> to install it.</span>";
+    } else if(pydft != PYDFT_PINNED_VERSION) {
+        pydft += QString(" (tested version: %1)").arg(PYDFT_PINNED_VERSION);
+    } else {
+        pydft += " (tested version)";
+    }
+    this->label_pydft->setText(pydft);
     this->label_python->setText(this->environment->get_python_version().isEmpty() ? "-" :
                                 this->environment->get_python_version());
     this->label_location->setText(QDir::toNativeSeparators(this->environment->python_executable()));
@@ -226,7 +250,7 @@ void EnvironmentDialog::update_state() {
 
     if(!has_uv && !override) {
         this->label_step->setText(QString("<span style='color:#c62828'>The uv executable that installs Python and "
-                                  "PyQInt was not found next to the program (%1) or on the PATH. The installers "
+                                  "PyQInt/PyDFT was not found next to the program (%1) or on the PATH. The installers "
                                   "include it; for a build from source, re-run the build (CMake option "
                                   "PYQINT_GUI_FETCH_UV) or run <tt>scripts/fetch-uv.sh</tt>. Alternatively, "
                                   "select your own Python interpreter with PyQInt below.</span>")

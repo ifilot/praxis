@@ -88,6 +88,7 @@ class JobResult {
 public:
     int schema = 0;
     QString pyqint_version;
+    QString pydft_version;          // empty for Hartree-Fock results
     QString python_version;
     QString created;
     QJsonObject job;                // job settings as echoed by the script
@@ -103,7 +104,9 @@ public:
     std::shared_ptr<BasisSet> basis;
 
     // SCF
-    QString method;                 // "rhf" or "uhf"
+    QString method;                 // "rhf", "uhf" or "rks" (Kohn-Sham DFT)
+    QString functional;             // DFT only, e.g. "svwn5"
+    bool converged = true;          // false when the program reports no convergence
     int nelec = 0;
     int nalpha = 0;
     int nbeta = 0;
@@ -154,6 +157,15 @@ public:
     inline bool is_unrestricted() const {
         return this->method == "uhf";
     }
+
+    inline bool is_dft() const {
+        return this->method == "rks";
+    }
+
+    /**
+     * @brief Human readable level of theory, e.g. "Restricted Hartree-Fock"
+     */
+    QString method_label() const;
 
     /**
      * @brief Matrix by key (e.g. "fock", "overlap"); nullptr when absent

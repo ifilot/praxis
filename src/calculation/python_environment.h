@@ -28,12 +28,14 @@
 #include <QStringList>
 
 /**
- * @brief Manages the private Python environment in which PyQInt runs
+ * @brief Manages the private Python environment in which PyQInt and PyDFT run
  *
  * The environment is created with uv (https://docs.astral.sh/uv/), which is
  * shipped alongside the executable. uv downloads a standalone Python build
- * and installs the pinned PyQInt version from PyPI into a virtual
- * environment in the user's application data folder. Nothing is installed
+ * and installs the pinned PyQInt and PyDFT versions from PyPI into a virtual
+ * environment in the user's application data folder. PyDFT is optional: an
+ * environment without it (e.g. one installed by an older version of this
+ * program) is ready for Hartree-Fock calculations only. Nothing is installed
  * system-wide and the user's own Python installation (if any) is ignored.
  *
  * Developers can bypass the managed environment by setting an interpreter
@@ -62,6 +64,8 @@ private:
 
     State state = State::Unknown;
     QString pyqint_version;
+    QString pydft_version;          // empty when PyDFT is not installed
+    QString pydft_error;            // why PyDFT could not be imported
     QString python_version;
     QString last_error;
 
@@ -120,6 +124,29 @@ public:
         return this->pyqint_version;
     }
 
+    inline const QString& get_pydft_version() const {
+        return this->pydft_version;
+    }
+
+    /**
+     * @brief Whether DFT calculations can be run (PyDFT can be imported)
+     */
+    inline bool has_pydft() const {
+        return this->is_ready() && !this->pydft_version.isEmpty();
+    }
+
+    /**
+     * @brief Error raised when importing PyDFT (empty when it could be imported)
+     */
+    inline const QString& get_pydft_error() const {
+        return this->pydft_error;
+    }
+
+    /**
+     * @brief Short description of the installed programs, e.g. "PyQInt 1.4.3 · PyDFT 1.0.0"
+     */
+    QString programs_label() const;
+
     inline const QString& get_python_version() const {
         return this->python_version;
     }
@@ -137,14 +164,14 @@ public slots:
     void check();
 
     /**
-     * @brief Create the environment and install the pinned PyQInt version
+     * @brief Create the environment and install the pinned PyQInt and PyDFT versions
      */
     void install();
 
     /**
-     * @brief Install the pinned PyQInt version or upgrade to the latest one
+     * @brief Install the pinned PyQInt and PyDFT versions or upgrade to the latest ones
      */
-    void update_pyqint(bool latest);
+    void update_packages(bool latest);
 
     /**
      * @brief Remove the environment completely and reinstall it
@@ -167,6 +194,7 @@ private:
     void run_steps(const QList<Step>& steps);
     void run_next_step();
     QStringList verify_arguments() const;
+    static QStringList pinned_packages();
     void parse_verify_output(const QString& text);
     QProcessEnvironment uv_environment() const;
 

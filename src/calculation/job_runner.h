@@ -31,7 +31,7 @@
 class PythonEnvironment;
 
 /**
- * @brief Runs a single PyQInt job in a separate Python process
+ * @brief Runs a single PyQInt or PyDFT job in a separate Python process
  *
  * Each job gets its own directory containing the generated job.py script,
  * the helper module, the molecule and, after completion, result.json and

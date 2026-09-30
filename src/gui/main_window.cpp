@@ -60,6 +60,7 @@
 
 namespace {
 constexpr const char* MANUAL_URL = "https://ifilot.github.io/pyqint/";
+constexpr const char* PYDFT_MANUAL_URL = "https://ifilot.github.io/pydft/";
 constexpr const char* GITHUB_URL = "https://github.com/ifilot/pyqint-gui";
 constexpr const char* DEFAULT_MOLECULE = ":/assets/molecules/h2o.xyz";
 }
@@ -315,6 +316,8 @@ void MainWindow::build_menu() {
     QMenu* menu_help = this->menuBar()->addMenu("&Help");
     QAction* action_manual = menu_help->addAction(bluecurve_icon("help-contents"), "PyQInt &manual");
     connect(action_manual, &QAction::triggered, this, []() { QDesktopServices::openUrl(QUrl(MANUAL_URL)); });
+    QAction* action_pydft_manual = menu_help->addAction(bluecurve_icon("help-contents"), "PyDFT m&anual");
+    connect(action_pydft_manual, &QAction::triggered, this, []() { QDesktopServices::openUrl(QUrl(PYDFT_MANUAL_URL)); });
     QAction* action_github = menu_help->addAction(bluecurve_icon("icon-globe"), QString("%1 on &GitHub").arg(PROGRAM_NAME));
     connect(action_github, &QAction::triggered, this, []() { QDesktopServices::openUrl(QUrl(GITHUB_URL)); });
     menu_help->addSeparator();
@@ -452,8 +455,8 @@ void MainWindow::localize_orbitals() {
         return;
     }
     this->localization_running = true;
-    this->append_log("Constructing Foster-Boys orbitals from the stored canonical orbitals "
-                     "(the Hartree-Fock calculation is not repeated).\n\n");
+    this->append_log(QString("Constructing Foster-Boys orbitals from the stored canonical orbitals "
+                             "(the %1 calculation is not repeated).\n\n").arg(result->is_dft() ? "DFT" : "Hartree-Fock"));
 }
 
 void MainWindow::open_file(const QString& path) {
@@ -565,7 +568,7 @@ void MainWindow::on_environment_state_changed() {
     QString text;
     switch(state) {
         case State::Ready:
-            text = QString("● PyQInt %1").arg(this->environment->get_pyqint_version());
+            text = QString("● %1").arg(this->environment->programs_label());
             this->status_environment->setStyleSheet("color: #2e7d32;");
             break;
         case State::Missing:
@@ -578,7 +581,7 @@ void MainWindow::on_environment_state_changed() {
             this->status_environment->setStyleSheet(QString());
     }
     this->status_environment->setText(text);
-    this->calculation_panel->set_environment_ready(this->environment->is_ready());
+    this->calculation_panel->set_environment_ready(this->environment->is_ready(), this->environment->has_pydft());
     this->update_analysis_actions();
 }
 
@@ -592,12 +595,12 @@ void MainWindow::on_environment_finished(bool success, const QString& message) {
         const State state = this->environment->get_state();
         if(!success && (state == State::Missing || state == State::Broken) &&
            PythonEnvironment::interpreter_override().isEmpty()) {
-            auto answer = QMessageBox::question(this, "Set up PyQInt",
-                QString("<p>%1 needs a Python environment with PyQInt to perform calculations.</p>"
-                        "<p>It will now download Python and PyQInt %2 (about 200&nbsp;MB) into "
+            auto answer = QMessageBox::question(this, "Set up PyQInt and PyDFT",
+                QString("<p>%1 needs a Python environment with PyQInt and PyDFT to perform calculations.</p>"
+                        "<p>It will now download Python, PyQInt %2 and PyDFT %3 (about 300&nbsp;MB) into "
                         "a private folder. This only has to be done once and does not affect other "
                         "Python installations on this computer.</p><p>Install now?</p>")
-                    .arg(PROGRAM_NAME, PYQINT_PINNED_VERSION));
+                    .arg(PROGRAM_NAME, PYQINT_PINNED_VERSION, PYDFT_PINNED_VERSION));
             if(answer == QMessageBox::Yes) {
                 this->show_environment_dialog();
                 this->environment_dialog->start_install();
@@ -631,6 +634,7 @@ void MainWindow::on_job_started(const QString& job_dir) {
 void MainWindow::on_job_stage(const QString& stage) {
     static const std::map<QString, QString> labels = {
         {"scf", "Solving the Hartree-Fock equations..."},
+        {"dft", "Building the integration grid and solving the Kohn-Sham equations..."},
         {"optimization", "Optimizing the geometry..."},
         {"localization", "Localizing orbitals (Foster-Boys)..."},
         {"export", "Collecting results..."},
@@ -695,13 +699,15 @@ void MainWindow::set_stereo(const QString& name) {
 void MainWindow::show_about() {
     QMessageBox::about(this, QString("About %1").arg(PROGRAM_NAME),
         QString("<h3>%1 %2</h3>"
-                "<p>Graphical user interface for <a href='%3'>PyQInt</a>, an educational "
-                "Hartree-Fock program.</p>"
+                "<p>Graphical user interface for the educational electronic-structure programs "
+                "<a href='%3'>PyQInt</a> (Hartree-Fock) and <a href='%8'>PyDFT</a> (density "
+                "functional theory).</p>"
                 "<p>Source code, releases and issue tracker: <a href='%7'>%7</a></p>"
                 "<p>Author: Ivo Filot<br>License: GNU General Public License v3<br>"
                 "Icons: Bluecurve icon theme (Red Hat, GPL)</p>"
-                "<p><small>Build %4 &middot; tested with PyQInt %5 &middot; Qt %6</small></p>")
-            .arg(PROGRAM_NAME, PROGRAM_VERSION, MANUAL_URL, GIT_HASH, PYQINT_PINNED_VERSION, qVersion(), GITHUB_URL));
+                "<p><small>Build %4 &middot; tested with PyQInt %5 and PyDFT %9 &middot; Qt %6</small></p>")
+            .arg(PROGRAM_NAME, PROGRAM_VERSION, MANUAL_URL, GIT_HASH, PYQINT_PINNED_VERSION, qVersion(), GITHUB_URL,
+                 PYDFT_MANUAL_URL, PYDFT_PINNED_VERSION));
 }
 
 void MainWindow::moveEvent(QMoveEvent* event) {

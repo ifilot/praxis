@@ -39,6 +39,7 @@ namespace {
 const QString PROGRESS_TAG = "@@PYQINT-GUI ";
 
 const QRegularExpression RE_SCF_ITERATION(R"(Iteration:\s*(\d+)\s*\|\s*Energy:\s*([-+0-9.eE]+))");
+const QRegularExpression RE_DFT_ITERATION(R"(^\s*(\d+)\s*\|\s*E\s*=\s*([-+0-9.eE]+)\s*\|\s*dE)");
 const QRegularExpression RE_GEOMOPT_STEP(R"(GEOMETRY OPTIMIZATION STEP\s+(\d+))");
 const QRegularExpression RE_GEOMOPT_TOTAL(R"(^\s*TOTAL:\s*([-+0-9.eE]+))");
 
@@ -85,6 +86,11 @@ QString JobRunner::start(const JobSpec& spec) {
     const QString invalid = spec.validate();
     if(!invalid.isEmpty()) {
         return invalid;
+    }
+
+    if(spec.is_dft() && !this->environment->has_pydft()) {
+        return "PyDFT is not installed in the Python environment. Open Python → Manage environment "
+               "and click 'Use tested versions' to install it.";
     }
 
     // create a unique job directory
@@ -161,6 +167,11 @@ void JobRunner::process_line(const QString& line) {
     }
 
     auto m = RE_SCF_ITERATION.match(line);
+    if(m.hasMatch()) {
+        emit scf_iteration(m.captured(1).toInt(), m.captured(2).toDouble());
+    }
+
+    m = RE_DFT_ITERATION.match(line);
     if(m.hasMatch()) {
         emit scf_iteration(m.captured(1).toInt(), m.captured(2).toDouble());
     }

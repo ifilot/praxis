@@ -450,9 +450,9 @@ void BondAnalysisDialog::update_summary() {
     switch(k) {
         case PopulationAnalysis::Kind::Hamilton:
             matrix = QString("F<sub>μν</sub>") + (spin_note.isEmpty() ? "" : QString("<sup>%1</sup>").arg(set.spin == "alpha" ? "α" : "β"));
-            meaning = "The Fock matrix element F<sub>μν</sub> is (mostly) negative between overlapping basis functions, "
+            meaning = QString("The %1 matrix element F<sub>μν</sub> is (mostly) negative between overlapping basis functions, "
                       "so a <b>negative</b> MOHP means that the orbital lowers the energy through the A–B interaction "
-                      "(bonding); a positive MOHP means antibonding.";
+                      "(bonding); a positive MOHP means antibonding.").arg(this->result->is_dft() ? "Kohn-Sham" : "Fock");
             break;
         case PopulationAnalysis::Kind::Overlap:
             matrix = "S<sub>μν</sub>";

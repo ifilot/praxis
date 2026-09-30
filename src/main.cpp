@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
 
     QCommandLineParser parser;
-    parser.setApplicationDescription("Graphical user interface for the PyQInt Hartree-Fock program");
+    parser.setApplicationDescription("Graphical user interface for the PyQInt (Hartree-Fock) and PyDFT (DFT) programs");
     parser.addHelpOption();
     parser.addVersionOption();
     parser.addPositionalArgument("file", "Molecule (.xyz) or result (.json) to open");

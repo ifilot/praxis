@@ -5,6 +5,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+Tested with PyQInt 1.4.3, PyDFT 1.0.0, Python 3.12 and uv 0.12.20.
+
+### Added
+- Added Kohn-Sham density functional theory single points through [PyDFT](https://ifilot.github.io/pydft/) (Theory → Density functional theory), with the SVWN5 (LDA) and PBE (GGA) functionals, a choice of the angular integration grid, live SCF convergence and optional Foster-Boys localization; the generated `job.py` uses only the public PyDFT API
+- Added validation of the limitations of PyDFT 1.0 with plain-language explanations: only neutral closed-shell molecules with elements H to Ar, no geometry optimizations, and no control over the maximum number of iterations, DIIS or orthogonalization
+- Added the Hartree (J) and exchange-correlation (Vxc) matrices, the correlation energy and the PyDFT version to the results of DFT calculations, and a warning when the SCF did not converge
+- Added PyDFT to the managed Python environment and its status to the environment dialog and the status bar; environments without PyDFT remain usable for Hartree-Fock
+- Added a link to the PyDFT manual to the Help menu
+
+### Changed
+- Changed "Use tested PyQInt" and "Update to latest PyQInt" in the environment dialog to "Use tested versions" and "Update to latest", which install or upgrade PyQInt and PyDFT together
+- Changed Foster-Boys localization of an existing result (`localize.py`) to also accept DFT results
+
 ## [0.2.0] - 2026-09-30
 
 Tested with PyQInt 1.4.3, Python 3.12 and uv 0.12.20.

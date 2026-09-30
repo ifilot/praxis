@@ -42,6 +42,7 @@ private:
 
     QLabel* label_state;
     QLabel* label_pyqint;
+    QLabel* label_pydft;
     QLabel* label_python;
     QLabel* label_location;
     QLabel* label_step;

@@ -30,6 +30,7 @@
 class QCheckBox;
 class QComboBox;
 class QDoubleSpinBox;
+class QFormLayout;
 class QGroupBox;
 class QLabel;
 class QPushButton;
@@ -46,13 +47,17 @@ private:
     Molecule molecule;
     bool running = false;
     bool environment_ready = false;
+    bool pydft_available = false;
 
     QLabel* label_molecule;
     QPushButton* button_library;
     QPushButton* button_open;
 
+    QFormLayout* form_calc;
+    QComboBox* combo_theory;
     QComboBox* combo_type;
     QComboBox* combo_method;
+    QComboBox* combo_functional;
     QComboBox* combo_basis;
     QSpinBox* spin_charge;
     QSpinBox* spin_multiplicity;
@@ -60,11 +65,14 @@ private:
 
     QPushButton* button_advanced;
     QGroupBox* group_advanced;
+    QFormLayout* form_advanced;
     QSpinBox* spin_itermax;
     QComboBox* combo_tolerance;
     QCheckBox* check_diis;
     QComboBox* combo_ortho;
     QComboBox* combo_gtol;
+    QComboBox* combo_grid;
+    QLabel* label_dft_note;
 
     QLabel* label_validation;
     QPushButton* button_run;
@@ -89,7 +97,7 @@ public slots:
      */
     void load_settings(const JobResult& result);
     void set_running(bool running);
-    void set_environment_ready(bool ready);
+    void set_environment_ready(bool ready, bool pydft_available);
     void set_status(const QString& text);
     void on_scf_iteration(int iteration, double energy);
     void on_optimization_step(int step, double energy);
@@ -104,4 +112,5 @@ private:
     void update_molecule_label();
     void update_state();
     void fix_spin_state();
+    bool is_dft() const;
 };

@@ -37,18 +37,34 @@ enum class HFMethod {
 };
 
 /**
- * @brief Everything needed to set up a PyQInt calculation
+ * @brief Level of theory, which also determines the Python program used
+ */
+enum class Theory {
+    HartreeFock,    // PyQInt
+    DFT,            // PyDFT (Kohn-Sham density functional theory)
+};
+
+/**
+ * @brief Everything needed to set up a PyQInt or PyDFT calculation
  */
 struct JobSpec {
+    /**
+     * @brief Heaviest element (atomic number) for which PyDFT has grid settings
+     */
+    static constexpr int PYDFT_MAX_ATOMIC_NUMBER = 18;
+
     Molecule molecule;
 
     JobType type = JobType::SinglePoint;
-    HFMethod method = HFMethod::Restricted;
+    Theory theory = Theory::HartreeFock;
+    HFMethod method = HFMethod::Restricted;     // Hartree-Fock only
+    QString functional = "svwn5";               // DFT only
+    int angular_points = 0;                     // DFT only; 0 = PyDFT default
     QString basis = "sto3g";
     int charge = 0;
     int multiplicity = 1;
 
-    // SCF settings
+    // SCF settings (PyDFT only uses the tolerance)
     int itermax = 100;
     double tolerance = 1e-9;
     bool use_diis = true;
@@ -57,7 +73,7 @@ struct JobSpec {
     // geometry optimization
     double gtol = 1e-5;
 
-    // Foster-Boys localization (restricted only)
+    // Foster-Boys localization (restricted Hartree-Fock and DFT)
     bool foster_boys = false;
     int fb_seed = 42;
     int fb_runners = 1;
@@ -81,6 +97,25 @@ struct JobSpec {
      */
     QString description() const;
 
+    inline bool is_dft() const {
+        return this->theory == Theory::DFT;
+    }
+
+    /**
+     * @brief Exchange-correlation functionals of PyDFT (names as used by PyDFT)
+     */
+    static QStringList available_functionals();
+
+    /**
+     * @brief Label shown in the user interface for a functional name
+     */
+    static QString functional_label(const QString& name);
+
+    /**
+     * @brief Lebedev grid sizes offered for DFT calculations
+     */
+    static QList<int> available_angular_points();
+
     /**
      * @brief Basis sets shipped with PyQInt (file names without .json)
      */
@@ -90,4 +125,7 @@ struct JobSpec {
      * @brief Label shown in the user interface for a basis set name
      */
     static QString basis_set_label(const QString& name);
+
+private:
+    QString validate_dft() const;
 };

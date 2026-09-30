@@ -59,17 +59,7 @@ QString JobScriptWriter::python_float(double v) {
     return s;
 }
 
-QString JobScriptWriter::generate(const JobSpec& spec) {
-    const bool restricted = spec.method == HFMethod::Restricted;
-    const bool geomopt = spec.type == JobType::GeometryOptimization;
-    const QString basis = python_string(spec.basis);
-
-    QString src;
-    QTextStream out(&src);
-
-    // ------------------------------------------------------------------
-    // header
-    // ------------------------------------------------------------------
+void JobScriptWriter::write_header(QTextStream& out, const JobSpec& spec, const QString& program) {
     out << "#!/usr/bin/env python3\n"
         << "# -*- coding: utf-8 -*-\n"
         << "#\n"
@@ -81,13 +71,41 @@ QString JobScriptWriter::generate(const JobSpec& spec) {
         << "# Charge       : " << spec.charge << "\n"
         << "# Multiplicity : " << spec.multiplicity << "\n"
         << "#\n"
-        << "# This script only uses the public PyQInt API and can be run on its own:\n"
+        << "# This script only uses the public " << program << " API and can be run on its own:\n"
         << "#\n"
         << "#     python job.py\n"
         << "#\n"
         << "# The helper module pyqint_gui_export.py (next to this script) writes all\n"
         << "# results to " << RESULT_FILENAME << ", which can be opened in " << PROGRAM_NAME << ".\n"
         << "#\n\n";
+}
+
+void JobScriptWriter::write_molecule(QTextStream& out, const JobSpec& spec) {
+    out << "# --- molecule (coordinates in angstrom; PyQInt converts to bohr) ---\n"
+        << "mol = Molecule(" << python_string(spec.molecule.get_name().simplified()) << ")\n";
+    for(const auto& atom : spec.molecule.get_atoms()) {
+        out << QString("mol.add_atom(%1, %2, %3, %4, unit='angstrom')\n")
+               .arg(python_string(atom.element), 4)
+               .arg(atom.position.x, 14, 'f', 8)
+               .arg(atom.position.y, 14, 'f', 8)
+               .arg(atom.position.z, 14, 'f', 8);
+    }
+    out << "mol.set_charge(" << spec.charge << ")\n\n";
+}
+
+QString JobScriptWriter::generate(const JobSpec& spec) {
+    if(spec.is_dft()) {
+        return generate_dft(spec);
+    }
+
+    const bool restricted = spec.method == HFMethod::Restricted;
+    const bool geomopt = spec.type == JobType::GeometryOptimization;
+    const QString basis = python_string(spec.basis);
+
+    QString src;
+    QTextStream out(&src);
+
+    write_header(out, spec, "PyQInt");
 
     // ------------------------------------------------------------------
     // imports
@@ -110,6 +128,7 @@ QString JobScriptWriter::generate(const JobSpec& spec) {
     // job settings, echoed into the result file
     // ------------------------------------------------------------------
     out << "JOB = {\n"
+        << "    'program': 'pyqint',\n"
         << "    'type': " << python_string(geomopt ? "geometry_optimization" : "single_point") << ",\n"
         << "    'method': " << python_string(restricted ? "rhf" : "uhf") << ",\n"
         << "    'basis': " << basis << ",\n"
@@ -125,19 +144,7 @@ QString JobScriptWriter::generate(const JobSpec& spec) {
     out << "    'foster_boys': " << (spec.foster_boys ? "True" : "False") << ",\n"
         << "}\n\n";
 
-    // ------------------------------------------------------------------
-    // molecule
-    // ------------------------------------------------------------------
-    out << "# --- molecule (coordinates in angstrom; PyQInt converts to bohr) ---\n"
-        << "mol = Molecule(" << python_string(spec.molecule.get_name().simplified()) << ")\n";
-    for(const auto& atom : spec.molecule.get_atoms()) {
-        out << QString("mol.add_atom(%1, %2, %3, %4, unit='angstrom')\n")
-               .arg(python_string(atom.element), 4)
-               .arg(atom.position.x, 14, 'f', 8)
-               .arg(atom.position.y, 14, 'f', 8)
-               .arg(atom.position.z, 14, 'f', 8);
-    }
-    out << "mol.set_charge(" << spec.charge << ")\n\n";
+    write_molecule(out, spec);
 
     out << "start = time.time()\n\n";
 
@@ -186,6 +193,91 @@ QString JobScriptWriter::generate(const JobSpec& spec) {
     }
     if(geomopt) {
         out << "    geomopt=opt,\n";
+    }
+    out << "    walltime=time.time() - start,\n"
+        << ")\n";
+
+    return src;
+}
+
+QString JobScriptWriter::generate_dft(const JobSpec& spec) {
+    const QString basis = python_string(spec.basis);
+
+    QString src;
+    QTextStream out(&src);
+
+    write_header(out, spec, "PyDFT");
+
+    QStringList imports = {"Molecule"};
+    if(spec.foster_boys) {
+        imports << "FosterBoys";
+    }
+
+    out << "import logging\n"
+        << "import sys\n"
+        << "import time\n\n"
+        << "from pydft import DFT\n"
+        << "from pyqint import " << imports.join(", ") << "\n"
+        << "from pyqint_gui_export import export_result, progress\n\n"
+        << "# PyDFT reports the SCF iterations through the logging module\n"
+        << "logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(message)s')\n\n";
+
+    // ------------------------------------------------------------------
+    // job settings, echoed into the result file
+    // ------------------------------------------------------------------
+    out << "JOB = {\n"
+        << "    'program': 'pydft',\n"
+        << "    'type': 'single_point',\n"
+        << "    'method': 'rks',\n"
+        << "    'functional': " << python_string(spec.functional) << ",\n"
+        << "    'basis': " << basis << ",\n"
+        << "    'charge': 0,\n"
+        << "    'multiplicity': 1,\n"
+        << "    'tolerance': " << python_float(spec.tolerance) << ",\n";
+    if(spec.angular_points > 0) {
+        out << "    'angular_points': " << spec.angular_points << ",\n";
+    }
+    out << "    'foster_boys': " << (spec.foster_boys ? "True" : "False") << ",\n"
+        << "}\n\n";
+
+    write_molecule(out, spec);
+
+    out << "start = time.time()\n\n";
+
+    // ------------------------------------------------------------------
+    // calculation
+    // ------------------------------------------------------------------
+    out << "# --- Kohn-Sham DFT calculation (closed shell) ---\n"
+        << "# PyDFT builds a numerical integration grid around every atom;\n"
+        << "# the SCF stops after at most 100 iterations.\n"
+        << "progress('dft')\n"
+        << "dft = DFT(\n"
+        << "    mol,\n"
+        << "    basis=" << basis << ",\n"
+        << "    functional=JOB['functional'],\n";
+    if(spec.angular_points > 0) {
+        out << "    nangpts=JOB['angular_points'],    # Lebedev points per atom\n";
+    }
+    out << ")\n"
+        << "res = dft.scf(tol=JOB['tolerance'], verbose=True)\n\n";
+
+    if(spec.foster_boys) {
+        out << "# --- Foster-Boys localization of the occupied Kohn-Sham orbitals ---\n"
+            << "progress('localization')\n"
+            << "fb = FosterBoys(res, seed=" << spec.fb_seed << ").run(nr_runners=" << spec.fb_runners << ")\n\n";
+    }
+
+    // ------------------------------------------------------------------
+    // export
+    // ------------------------------------------------------------------
+    out << "# --- store all results ---\n"
+        << "export_result(\n"
+        << "    " << python_string(RESULT_FILENAME) << ",\n"
+        << "    job=JOB,\n"
+        << "    mol=mol,\n"
+        << "    hf=res,\n";
+    if(spec.foster_boys) {
+        out << "    fosterboys=fb,\n";
     }
     out << "    walltime=time.time() - start,\n"
         << ")\n";
@@ -243,9 +335,9 @@ QString JobScriptWriter::generate_localization(const QString& result_filename, i
         << " on " << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss") << "\n"
         << "#\n"
         << "# Constructs Foster-Boys localized orbitals from the canonical orbitals in\n"
-        << "# " << result_filename << " and adds them to that file. The Hartree-Fock calculation\n"
-        << "# is not repeated: load_result() rebuilds the result dictionary of HF.rhf()\n"
-        << "# from the file. Run it on its own with\n"
+        << "# " << result_filename << " and adds them to that file. The SCF calculation\n"
+        << "# (Hartree-Fock or DFT) is not repeated: load_result() rebuilds the result\n"
+        << "# dictionary of HF.rhf() or DFT.scf() from the file. Run it on its own with\n"
         << "#\n"
         << "#     python " << LOCALIZATION_SCRIPT_FILENAME << "\n"
         << "#\n\n"
@@ -253,7 +345,7 @@ QString JobScriptWriter::generate_localization(const QString& result_filename, i
         << "from pyqint import FosterBoys\n"
         << "from pyqint_gui_export import load_result, add_localization, progress\n\n"
         << "start = time.time()\n\n"
-        << "# --- Hartree-Fock result, read from the result file ---\n"
+        << "# --- SCF result, read from the result file ---\n"
         << "res = load_result(" << file << ")\n\n"
         << "# --- Foster-Boys localization of the occupied orbitals ---\n"
         << "progress('localization')\n"

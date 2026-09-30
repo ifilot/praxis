@@ -45,6 +45,10 @@ QString JobSpec::validate() const {
             .arg(ne % 2 == 0 ? "odd" : "even");
     }
 
+    if(this->is_dft()) {
+        return this->validate_dft();
+    }
+
     if(this->method == HFMethod::Restricted && this->multiplicity != 1) {
         return "Restricted Hartree-Fock requires a closed-shell system (multiplicity 1). "
                "Use unrestricted Hartree-Fock for open-shell systems.";
@@ -65,7 +69,57 @@ QString JobSpec::validate() const {
     return QString();
 }
 
+QString JobSpec::validate_dft() const {
+    // PyDFT 1.0 obtains the number of electrons from the nuclear charges and
+    // doubly occupies the lowest orbitals: only neutral closed-shell molecules
+    if(this->charge != 0) {
+        return "PyDFT only supports neutral molecules (it ignores the molecular charge).";
+    }
+
+    if(this->multiplicity != 1) {
+        return "PyDFT only supports closed-shell molecules (multiplicity 1); "
+               "use unrestricted Hartree-Fock for open-shell systems.";
+    }
+
+    // its integration grids are only parametrized for H-Ar
+    QStringList unsupported;
+    for(const auto& atom : this->molecule.get_atoms()) {
+        const int z = Molecule::atomic_number(atom.element);
+        if((z <= 0 || z > PYDFT_MAX_ATOMIC_NUMBER) && !unsupported.contains(atom.element)) {
+            unsupported << atom.element;
+        }
+    }
+    if(!unsupported.isEmpty()) {
+        return QString("PyDFT only supports the elements H to Ar; this molecule contains %1.")
+            .arg(unsupported.join(", "));
+    }
+
+    if(this->type != JobType::SinglePoint) {
+        return "PyDFT does not support geometry optimizations; optimize the geometry "
+               "with Hartree-Fock first.";
+    }
+
+    if(!available_functionals().contains(this->functional)) {
+        return QString("Unknown exchange-correlation functional '%1'.").arg(this->functional);
+    }
+
+    if(this->angular_points != 0 && !available_angular_points().contains(this->angular_points)) {
+        return QString("Unsupported number of angular grid points (%1).").arg(this->angular_points);
+    }
+
+    return QString();
+}
+
 QString JobSpec::description() const {
+    if(this->is_dft()) {
+        QString result = QString("%1/%2 single point")
+            .arg(functional_label(this->functional), basis_set_label(this->basis));
+        if(this->foster_boys) {
+            result += " + Foster-Boys";
+        }
+        return result;
+    }
+
     QString method_str = this->method == HFMethod::Restricted ? "RHF" : "UHF";
     QString type_str = this->type == JobType::SinglePoint ? "single point" : "geometry optimization";
     QString result = QString("%1/%2 %3").arg(method_str, basis_set_label(this->basis), type_str);
@@ -85,4 +139,18 @@ QString JobSpec::basis_set_label(const QString& name) {
     if(name == "p321") return "3-21G";
     if(name == "p631") return "6-31G";
     return name;
+}
+
+QStringList JobSpec::available_functionals() {
+    return {"svwn5", "pbe"};
+}
+
+QString JobSpec::functional_label(const QString& name) {
+    if(name == "svwn5") return "SVWN5";
+    if(name == "pbe") return "PBE";
+    return name;
+}
+
+QList<int> JobSpec::available_angular_points() {
+    return {50, 110, 146, 194, 302};
 }
